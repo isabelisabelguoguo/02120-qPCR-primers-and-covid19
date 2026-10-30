@@ -231,7 +231,7 @@ imports the model. `read_fasta` added to the model for real genomes.
 
 ## Log 5 · 2026-10-30 · Documentation (no model change)
 
-**Commits:** `bfaff5d`, `526c2a5` (the restore in #31), then #32 (ID filled in at the next update)
+**Commits:** `bfaff5d`, `526c2a5` (the restore in #31), `1a78e66` (#32), then the session log (ID filled in at the next update)
 
 **#28. Problem:** this file was plain text (`.txt`), so its headings and labels
 showed as raw characters on GitHub.

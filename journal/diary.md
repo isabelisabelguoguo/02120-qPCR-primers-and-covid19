@@ -148,7 +148,7 @@ answer could be worked out by hand first (7 test cases).
 
 ## Log 5 · 2026-10-30 · Documentation (no model change)
 
-**Commits:** `bfaff5d`, `526c2a5` (the restore), then the README update (filled in at the next update)
+**Commits:** `bfaff5d`, `526c2a5` (the restore), `1a78e66` (the README update), then the session log (filled in at the next update)
 
 ### What I did
 - Started this diary.
