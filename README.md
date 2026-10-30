@@ -29,7 +29,7 @@ targets survive.
   salt and oligo concentrations.
 
 ## Data
-
+see data folder
 ## Running it
 
 current version does not account for annealing temperature, but includes pseudoprimers, solve-by-hand cases, and checks CDC primers
