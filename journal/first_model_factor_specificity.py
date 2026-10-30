@@ -1,5 +1,5 @@
 # =============================================================================
-# FIRST MODEL: FACTOR: SPECIFICITY   (version 3)
+# FIRST MODEL: FACTOR: SPECIFICITY   (version 4)
 # =============================================================================
 # 02-120 project: Do early SARS-CoV-2 qPCR primers still match later variants?
 #
@@ -11,10 +11,14 @@
 #   - indexes the target's k-mers so primers are not slid across every position
 #   - finds primer binding sites on BOTH strands
 #   - allows a user-chosen number of mismatches
-#   - reports each mismatch by its distance from the primer's 3' end AND the
-#     base change (primer base vs genome base)
-#   - flags mismatches close to the 3' end as "3' at risk"
-#   - accepts degenerate primer bases (Y = C or T, R = A or G, N = any, ...)
+#   - reports each mismatch by its distance from the primer's 3' end, the
+#     base change (primer base vs genome base) and how severe that kind of
+#     mismatch is (severe or mild)
+#   - grades mismatches close to the 3' end as "3' risk: high / low / possible"
+#   - accepts degenerate bases in primers (Y = C or T, R = A or G, N = any, ...)
+#     and reads ambiguity codes in the genome (genome Y = C or T)
+#   - lets a site with a 1-base insertion/deletion in the primer's 5' half
+#     still bind (it counts as 1 mismatch)
 #   - pairs sites that face each other at a plausible distance into products
 #   - checks that the qPCR probe binds inside each product
 #   - for every primer that fails, reports its closest near-miss site,
@@ -30,14 +34,17 @@
 # What it does NOT do yet (left for later models):
 #   - melting temperature / annealing temperature (nearest-neighbor model)
 #   - primer dimers
-#   - reading any real genome or primer files
 #
-# Everything is tested on FAKE primers and a FAKE target sequence built by
-# hand, so every expected answer can be worked out on paper first
-# ("Cases solvable by hand" in the proposal).
-# See journal/test_cases_specificity.txt for every case and its outcome.
+# Files that go with this model (all in journal/):
+#   test_first_model_factor_specificity.py - fake, hand-solvable test cases
+#                                            plus search-completeness tests
+#   cdc_reference_check.py                 - CDC N1/N2/N3 (+ RNase P control)
+#                                            on the real reference genome
+#   test_cases_specificity.txt             - every test case and its outcome
+#   modification documentation.txt         - every problem found and fixed
 #
-# Run it with:  python3 journal/first_model_factor_specificity.py
+# Run the tests with:     python3 journal/test_first_model_factor_specificity.py
+# Run the CDC check with: python3 journal/cdc_reference_check.py
 # =============================================================================
 #
 # -----------------------------------------------------------------------------
@@ -74,8 +81,14 @@
 #
 # Degenerate primers: some published primers and probes contain IUPAC codes
 # (the CDC N3 probe has a Y). A primer Y matches a genome C or T.
-# In the TARGET, any letter other than A/C/G/T is unknown data (see the
-# "HANDLING BAD SEQUENCING DATA" note above).
+#
+# Ambiguity codes in the GENOME are read for what they say, not thrown away:
+#   every base the genome letter could be is accepted by the primer -> match
+#   none of them is accepted                                        -> mismatch
+#   some are, some are not                                          -> unknown
+# e.g. primer C vs genome Y (C or T) is unknown, primer C vs genome R (A or G)
+# is a certain mismatch, primer Y vs genome Y is a certain match.
+# Anything that is not a DNA letter at all (e.g. "-") is unknown.
 # =============================================================================
 
 COMPLEMENT = {
@@ -111,6 +124,19 @@ def clean_oligo(name, seq):
 def base_matches(genome_base, primer_base):
     """True if the genome base is one the primer letter accepts."""
     return genome_base in IUPAC[primer_base]
+
+
+def genome_vs_primer(genome_base, primer_base):
+    """Return 'match', 'mismatch' or 'unknown' for one genome letter facing one primer letter."""
+    could_be = IUPAC.get(genome_base)
+    if could_be is None:
+        return "unknown"   # not a DNA letter at all
+    accepted = IUPAC[primer_base]
+    if all(base in accepted for base in could_be):
+        return "match"
+    if not any(base in accepted for base in could_be):
+        return "mismatch"
+    return "unknown"
 
 
 def expand_degenerate(seq):
@@ -155,9 +181,10 @@ def seed_hits(index, seed):
 # from the 3' end: 1 = the very last (3'-terminal) base of the primer.
 #
 # Positions are split into two kinds:
-#   mismatch - the target has a real base (A/C/G/T) the primer does not accept
-#   unknown  - the target has N/an ambiguity code, or the position lies
-#              beyond the start or end of the sequence (no data at all)
+#   mismatch - the genome letter certainly differs from what the primer accepts
+#   unknown  - the genome has N/an ambiguity code that might or might not
+#              match, or the position lies beyond the start or end of the
+#              sequence (no data at all)
 #
 # Each mismatch is also described as a base change, both bases written in the
 # primer's own 5'->3' direction: "primer C, genome G" means the primer has a C
@@ -169,10 +196,14 @@ def compare_site(target, start, pattern):
     mismatches, unknowns = [], []
     for offset, primer_base in enumerate(pattern):
         position = start + offset
-        if position < 0 or position >= len(target) or target[position] not in KNOWN_BASES:
+        if position < 0 or position >= len(target):
             unknowns.append(offset)
-        elif not base_matches(target[position], primer_base):
+            continue
+        verdict = genome_vs_primer(target[position], primer_base)
+        if verdict == "mismatch":
             mismatches.append(offset)
+        elif verdict == "unknown":
+            unknowns.append(offset)
     return mismatches, unknowns
 
 
@@ -199,8 +230,39 @@ def describe_changes(target, pattern, pairs, strand):
             "from_3prime": distances_from_3prime([offset], len(pattern), strand)[0],
             "primer": primer_base,
             "genome": genome_base,
+            "severity": mismatch_severity(primer_base, genome_base),
         })
     return sorted(changes, key=lambda change: change["from_3prime"])
+
+
+# =============================================================================
+# SECTION 3b: HOW SEVERE IS A MISMATCH? (graded, not all-or-nothing)
+# -----------------------------------------------------------------------------
+# Not every mismatch hurts PCR equally. In a mismatch, the primer base sits
+# opposite a TEMPLATE base (the complement of the genome base shown in the
+# report). Measured effects near the 3' end (Stadhouders et al. 2010,
+# J Mol Diagn 12:109-117; Kwok et al. 1990, Nucleic Acids Res 18:999-1005):
+#   severe - primer-template A-A, G-A, A-G and C-C: these block extension
+#            strongly (large rise in Ct, or no product)
+#   mild   - every other pairing, e.g. G-T, T-G, T-T, T-C: the polymerase
+#            often extends through them with only a small delay
+# A degenerate letter counts as severe if ANY base it stands for is severe.
+#
+# Severity changes the 3' risk grade below; the mismatch allowance still
+# counts every mismatch as 1, so the search guarantees in Section 4 hold.
+# =============================================================================
+
+SEVERE_PAIRS = {("A", "A"), ("G", "A"), ("A", "G"), ("C", "C")}   # (primer, template)
+
+
+def mismatch_severity(primer_base, genome_base):
+    """'severe' or 'mild' for a primer base facing the template opposite genome_base."""
+    template = COMPLEMENT[genome_base]
+    for primer_option in IUPAC[primer_base]:
+        for template_option in IUPAC[template]:
+            if (primer_option, template_option) in SEVERE_PAIRS:
+                return "severe"
+    return "mild"
 
 
 # *****************************************************************************
@@ -208,13 +270,34 @@ def describe_changes(target, pattern, pairs, strand):
 # ***                                                                       ***
 # ***   >>> USER SETTING: 3' END RISK WINDOW <<<                            ***
 # ***                                                                       ***
-# ***   A mismatch this many bases (or fewer) from the 3' end flags the     ***
-# ***   site and its product as "3' at risk" (default: 3).                  ***
-# ***   The site still counts as binding; the flag is a warning.            ***
+# ***   Mismatches this many bases (or fewer) from the 3' end give the      ***
+# ***   site and its product a 3' risk grade (default: 3):                  ***
+# ***     high     - a severe mismatch in the window                        ***
+# ***     low      - only mild mismatches in the window                     ***
+# ***     possible - no mismatch, but an unknown base in the window         ***
+# ***   The site still counts as binding; the grade is a warning.           ***
 # ***                                                                       ***
 # *****************************************************************************
 # *****************************************************************************
 THREE_PRIME_WINDOW = 3
+RISK_ORDER = [None, "possible", "low", "high"]   # least to most worrying
+
+
+def three_prime_risk(changes, unknown_from_3prime):
+    """Grade the 3' end of one site: 'high', 'low', 'possible' or None."""
+    near = [c for c in changes if c["from_3prime"] <= THREE_PRIME_WINDOW]
+    if any(c["severity"] == "severe" for c in near):
+        return "high"
+    if near:
+        return "low"
+    if any(d <= THREE_PRIME_WINDOW for d in unknown_from_3prime):
+        return "possible"
+    return None
+
+
+def worst_risk(*risks):
+    """The most worrying of several 3' risk grades."""
+    return max(risks, key=RISK_ORDER.index)
 
 
 # =============================================================================
@@ -282,8 +365,12 @@ def find_binding_sites(primer_name, primer, target, index, k, max_mismatches):
                 continue  # too different (or too little data) to be a site
 
             # -- 4d: decide the outcome for this site
+            # If the site would still fit the allowance even if EVERY unknown
+            # base were a mismatch, the missing data cannot change the answer.
             if not unknowns:
                 outcome, reason = "binds", ""
+            elif len(mismatches) + len(unknowns) <= max_mismatches:
+                outcome, reason = "binds", "binds even if every unknown base is a mismatch"
             elif start < 0:
                 outcome, reason = "not assessable", "runs off the start of the sequence"
             elif start + len(pattern) > len(target):
@@ -292,6 +379,7 @@ def find_binding_sites(primer_name, primer, target, index, k, max_mismatches):
                 outcome, reason = "not assessable", "overlaps N/ambiguous bases"
 
             changes = describe_changes(target, pattern, [(o, start + o) for o in mismatches], strand)
+            unknown_from_3prime = distances_from_3prime(unknowns, len(pattern), strand)
             sites.append({
                 "primer": primer_name,
                 "strand": strand,
@@ -302,8 +390,9 @@ def find_binding_sites(primer_name, primer, target, index, k, max_mismatches):
                 "mismatches": len(mismatches),
                 "mismatch_from_3prime": [change["from_3prime"] for change in changes],
                 "changes": changes,
-                "three_prime_risk": any(c["from_3prime"] <= THREE_PRIME_WINDOW for c in changes),
-                "unknown_from_3prime": distances_from_3prime(unknowns, len(pattern), strand),
+                "indel": None,
+                "three_prime_risk": three_prime_risk(changes, unknown_from_3prime),
+                "unknown_from_3prime": unknown_from_3prime,
             })
     return sites
 
@@ -363,14 +452,14 @@ def gapped_pairs(length, left_start, gap_at, gap_length, kind):
     return left + right, left_start + length + gap_length
 
 
-def placements(anchor, length):
+def placements(anchor, length, max_indel=MAX_INDEL):
     """Every (left start, gap position, gap length, kind) worth trying around one seed anchor.
 
     A seed may sit on either side of the gap, so the left part is tried both at
     the anchor and shifted by the gap length.
     """
     yield anchor, 0, 0, "none"
-    for gap_length in range(1, MAX_INDEL + 1):
+    for gap_length in range(1, max_indel + 1):
         for gap_at in range(1, length):
             for left_start in {anchor, anchor - gap_length}:
                 yield left_start, gap_at, gap_length, "insertion"
@@ -379,18 +468,31 @@ def placements(anchor, length):
                     yield left_start, gap_at, gap_length, "deletion"
 
 
+def describe_indel(kind, gap_at, gap_length, length, strand):
+    """Describe a gap by its kind, length and distance from the primer's 3' end."""
+    if kind == "deletion":
+        span = distances_from_3prime(range(gap_at, gap_at + gap_length), length, strand)
+    else:
+        span = distances_from_3prime([gap_at - 1, gap_at], length, strand)
+    return {"kind": kind, "length": gap_length, "from_3prime": (span[0], span[-1])}
+
+
+def anchors_for(pattern, index, k):
+    """Start positions suggested by every exact k-mer the pattern shares with the target."""
+    anchors = set()
+    for offset in range(len(pattern) - k + 1):
+        for hit in seed_hits(index, pattern[offset:offset + k]):
+            anchors.add(hit - offset)
+    return anchors
+
+
 def find_near_miss(primer_name, primer, target, index, k):
     """Return the closest placement of a failed primer, or None if nothing is close."""
     best, best_key = None, None
     for strand, pattern in (("+", primer), ("-", reverse_complement(primer))):
-        # -- 5a: anchors from every exact k-mer the primer shares with the target
-        anchors = set()
-        for offset in range(len(pattern) - k + 1):
-            for hit in seed_hits(index, pattern[offset:offset + k]):
-                anchors.add(hit - offset)
-
-        # -- 5b: score every placement around every anchor
-        for anchor in anchors:
+        # -- 5a: anchors from every exact k-mer the primer shares with the target,
+        # -- 5b: then score every placement around every anchor
+        for anchor in anchors_for(pattern, index, k):
             for left_start, gap_at, gap_length, kind in placements(anchor, len(pattern)):
                 pairs, end = gapped_pairs(len(pattern), left_start, gap_at, gap_length, kind)
                 if left_start < 0 or end > len(target):
@@ -404,18 +506,14 @@ def find_near_miss(primer_name, primer, target, index, k):
                 limit = NEAR_MISS_MAX_EVENTS if kind == "none" else NEAR_MISS_MAX_EVENTS_WITH_INDEL
                 if events > limit:
                     continue  # too different to be more than a coincidence
-                key =(events, gap_length)   # fewer events first, then the smaller gap
+                key = (events, gap_length)   # fewer events first, then the smaller gap
                 if best_key is not None and key >= best_key:
                     continue
 
                 # -- 5c: describe the insertion/deletion, if any
                 indel = None
-                if kind == "deletion":
-                    span = distances_from_3prime(range(gap_at, gap_at + gap_length), len(pattern), strand)
-                    indel = {"kind": "deletion", "length": gap_length, "from_3prime": (span[0], span[-1])}
-                elif kind == "insertion":
-                    span = distances_from_3prime([gap_at - 1, gap_at], len(pattern), strand)
-                    indel = {"kind": "insertion", "length": gap_length, "from_3prime": (span[0], span[-1])}
+                if kind != "none":
+                    indel = describe_indel(kind, gap_at, gap_length, len(pattern), strand)
 
                 best_key = key
                 best = {
@@ -428,6 +526,78 @@ def find_near_miss(primer_name, primer, target, index, k):
                     "indel": indel,
                 }
     return best
+
+
+# =============================================================================
+# SECTION 5b: BINDING THROUGH A SMALL INSERTION/DELETION IN THE 5' HALF
+# -----------------------------------------------------------------------------
+# A 1-base insertion or deletion near a primer's 5' end usually still lets it
+# bind and extend: the 3' end, where polymerase starts, is intact. So a site
+# whose only gap is
+#   - at most MAX_BINDING_INDEL bases long, and
+#   - in the primer's 5' half (more than half the primer length from the 3' end)
+# still "binds". The gap counts as 1 mismatch toward the allowance, so with
+# 0 mismatches allowed no gapped site binds. A gap in the 3' half never binds;
+# the near-miss search (Section 5) reports it instead.
+#
+# Only fully sequenced placements are used, and a gapped site is skipped where
+# the same primer already has an ungapped site on that strand.
+# Limit: like the near-miss search, this starts from exact 5-base stretches.
+# =============================================================================
+
+MAX_BINDING_INDEL = 1
+
+
+def find_indel_sites(primer_name, primer, target, index, k, max_mismatches, existing):
+    """Return extra 'binds' sites that need one small gap in the primer's 5' half."""
+    if max_mismatches < 1:
+        return []
+    found = []
+    for strand, pattern in (("+", primer), ("-", reverse_complement(primer))):
+        length = len(pattern)
+
+        # -- 5b-1: collect every allowed gapped placement
+        candidates = []
+        for anchor in anchors_for(pattern, index, k):
+            for left_start, gap_at, gap_length, kind in placements(anchor, length, MAX_BINDING_INDEL):
+                if kind == "none":
+                    continue
+                indel = describe_indel(kind, gap_at, gap_length, length, strand)
+                if indel["from_3prime"][0] <= length // 2:
+                    continue  # gap is in the 3' half: not allowed to bind
+                pairs, end = gapped_pairs(length, left_start, gap_at, gap_length, kind)
+                if left_start < 0 or end > len(target):
+                    continue
+                if any(base not in KNOWN_BASES for base in target[left_start:end]):
+                    continue
+                mismatched = [(o, p) for o, p in pairs if not base_matches(target[p], pattern[o])]
+                events = len(mismatched) + 1
+                if events <= max_mismatches:
+                    candidates.append((events, left_start, end, indel, mismatched))
+
+        # -- 5b-2: keep the best placement per location, skipping ungapped sites
+        taken = [(s["start"], s["end"]) for s in existing
+                 if s["primer"] == primer_name and s["strand"] == strand]
+        for events, left_start, end, indel, mismatched in sorted(candidates, key=lambda c: (c[0], c[1])):
+            if any(left_start < t_end and t_start < end for t_start, t_end in taken):
+                continue
+            taken.append((left_start, end))
+            changes = describe_changes(target, pattern, mismatched, strand)
+            found.append({
+                "primer": primer_name,
+                "strand": strand,
+                "start": left_start,
+                "end": end,
+                "outcome": "binds",
+                "reason": "",
+                "mismatches": events,              # the gap counts as 1
+                "mismatch_from_3prime": [c["from_3prime"] for c in changes],
+                "changes": changes,
+                "indel": indel,
+                "three_prime_risk": three_prime_risk(changes, []),
+                "unknown_from_3prime": [],
+            })
+    return found
 
 
 # =============================================================================
@@ -462,7 +632,7 @@ def pair_into_products(sites, min_length, max_length):
                     "start": left["start"],
                     "end": right["end"],
                     "length": length,
-                    "three_prime_risk": left["three_prime_risk"] or right["three_prime_risk"],
+                    "three_prime_risk": worst_risk(left["three_prime_risk"], right["three_prime_risk"]),
                 })
     products.sort(key=lambda p: (p["start"], p["length"]))
     return products
@@ -557,10 +727,11 @@ def run_model(forward, reverse, target, probe=None, max_mismatches=2, k=5,
     if probe:
         oligos["probe"] = clean_oligo("probe", probe)
 
-    # -- 8a: binding sites for every oligo
+    # -- 8a: binding sites for every oligo (plain sites, then small-gap sites)
     sites = []
     for name, seq in oligos.items():
-        sites += find_binding_sites(name, seq, target, index, k, max_mismatches)
+        plain = find_binding_sites(name, seq, target, index, k, max_mismatches)
+        sites += plain + find_indel_sites(name, seq, target, index, k, max_mismatches, plain)
 
     # -- 8b: products, probe check and status
     products = pair_into_products(sites, min_length, max_length)
@@ -575,8 +746,8 @@ def run_model(forward, reverse, target, probe=None, max_mismatches=2, k=5,
                    for name, seq in oligos.items() if outcomes[name] == "mismatched"}
 
     # -- 8d: warnings worth reading even when a product forms
-    warnings = [f"3' at risk: {p['left']['primer']} x {p['right']['primer']} product "
-                f"at {p['start'] + 1}-{p['end']}"
+    warnings = [f"3' risk {p['three_prime_risk']}: {p['left']['primer']} x {p['right']['primer']} "
+                f"product at {p['start'] + 1}-{p['end']}"
                 for p in products if p["status"] == "product" and p["three_prime_risk"]]
 
     return {
@@ -594,17 +765,17 @@ def run_model(forward, reverse, target, probe=None, max_mismatches=2, k=5,
 # =============================================================================
 
 def format_changes(changes):
-    return ", ".join(f"{c['from_3prime']} from 3': primer {c['primer']}, genome {c['genome']}"
-                     for c in changes)
+    return ", ".join(f"{c['from_3prime']} from 3': primer {c['primer']}, genome {c['genome']} "
+                     f"({c['severity']})" for c in changes)
 
 
 def format_indel(indel):
     low, high = indel["from_3prime"]
+    size = "1 base" if indel["length"] == 1 else f"{indel['length']} bases"
     if indel["kind"] == "deletion":
-        return (f"deletion of {indel['length']} bases "
-                f"(primer bases {low}-{high} from 3' have no genome partner)")
-    return (f"insertion of {indel['length']} bases "
-            f"(extra genome bases between primer bases {low} and {high} from 3')")
+        where = f"primer base {low}" if low == high else f"primer bases {low}-{high}"
+        return f"deletion of {size} ({where} from 3' has no genome partner)"
+    return f"insertion of {size} (extra genome bases between primer bases {low} and {high} from 3')"
 
 
 def print_report(title, result):
@@ -616,8 +787,10 @@ def print_report(title, result):
                 f"{s['outcome']:<15} mismatches={s['mismatches']}")
         if s["changes"]:
             line += f" ({format_changes(s['changes'])})"
+        if s["indel"]:
+            line += f" ({format_indel(s['indel'])})"
         if s["three_prime_risk"]:
-            line += "  [3' AT RISK]"
+            line += f"  [3' RISK: {s['three_prime_risk'].upper()}]"
         if s["reason"]:
             line += f"  [{s['reason']}; unknown from 3' end={s['unknown_from_3prime']}]"
         print(line)
@@ -648,427 +821,20 @@ def print_report(title, result):
 
 
 # =============================================================================
-# SECTION 10: FAKE PRIMERS AND FAKE TARGET BUILDING BLOCKS
+# SECTION 10: READING A GENOME FILE (FASTA)
 # -----------------------------------------------------------------------------
-# The fake target is assembled from pieces of known length, so every expected
-# position and product size below can be added up by hand.
-#
-# Filler is poly-A: it cannot match any 5-base seed of these primers, so it
-# never creates accidental binding sites.
+# A FASTA file is one ">" header line followed by the sequence split over many
+# lines. The lines are joined into one string.
 # =============================================================================
 
-FAKE_FORWARD = "GTTCAGAGCTACTGAC"   # 16 bases
-FAKE_REVERSE = "TCCGATAGTCAGCTTG"   # 16 bases
-
-# Where the reverse primer sits on the plus strand (as its reverse complement)
-REVERSE_SITE = reverse_complement(FAKE_REVERSE)   # "CAAGCTGACTATCGGA"
-
-INSERT = "CGTACGTTGCATGCCTAGGT"     # 20 bases between the two primer sites
-FAKE_PROBE = INSERT                 # the probe binds the whole insert
-
-
-def filler(n):
-    """n bases of background sequence that no primer can bind."""
-    return "A" * n
-
-
-def amplicon():
-    """forward site + insert + reverse site = 16 + 20 + 16 = 52 bp product."""
-    return FAKE_FORWARD + INSERT + REVERSE_SITE
-
-
-def mutate(seq, offset, new_base):
-    """Return seq with the base at offset replaced (used to plant mismatches or Ns)."""
-    return seq[:offset] + new_base + seq[offset + 1:]
-
-
-def change_base(seq, offset):
-    """Plant a guaranteed mismatch: A becomes C, anything else becomes A."""
-    return mutate(seq, offset, "C" if seq[offset] == "A" else "A")
-
-
-# =============================================================================
-# SECTION 11: CASES SOLVABLE BY HAND: CORE (version 1)
-# -----------------------------------------------------------------------------
-# Each case states its expected answer (worked out on paper), runs the model,
-# and checks the model agrees. A failed check stops the program.
-# Positions in the checks are 0-based (as stored); the report prints 1-based.
-# =============================================================================
-
-def check(condition, message):
-    if not condition:
-        raise AssertionError(message)
-    print(f"  PASS: {message}")
-
-
-def product_lengths(result):
-    """Lengths of the products whose status is 'product', smallest first."""
-    return sorted(p["length"] for p in result["products"] if p["status"] == "product")
-
-
-def site_of(result, primer):
-    """The first site found for one primer."""
-    return [s for s in result["sites"] if s["primer"] == primer][0]
-
-
-# -- Case 1: exact match, one product ----------------------------------------
-# target = 10 filler + 52 bp amplicon + 10 filler
-# forward binds "+" at 10..26, reverse binds "-" at 46..62, product 10..62 = 52 bp
-def case_exact_match():
-    target = filler(10) + amplicon() + filler(10)
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=0)
-    print_report("Case 1: exact match", result)
-    check(product_lengths(result) == [52], "exactly one product, 52 bp (16 + 20 + 16)")
-    product = result["products"][0]
-    check((product["start"], product["end"]) == (10, 62), "product spans 10-62 (printed 11-62)")
-
-
-# -- Case 2: reverse-strand matches ------------------------------------------
-# Reverse-complement the whole Case 1 target. The product is the same 52 bp,
-# but now the REVERSE primer is the "+" site and the FORWARD primer is "-".
-def case_reverse_strand():
-    target = reverse_complement(filler(10) + amplicon() + filler(10))
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=0)
-    print_report("Case 2: whole target on the other strand", result)
-    check(product_lengths(result) == [52], "exactly one product, still 52 bp")
-    check(result["products"][0]["left"]["primer"] == "reverse", "reverse primer is now the '+' site")
-    check(result["products"][0]["right"]["primer"] == "forward", "forward primer is now the '-' site")
-
-
-# -- Case 3: introduced mismatches at the 3' end -----------------------------
-# Forward site: last base (amplicon offset 15) C -> G, distance 1 from 3' end.
-# Reverse site: first plus-strand base (amplicon offset 36) C -> T. The reverse
-# primer's 3' end is the LEFT end of a "-" site, so this is also distance 1.
-# In the reverse primer's own direction: its 3' base G now faces genome A.
-def case_mismatches():
-    seq = mutate(mutate(amplicon(), 15, "G"), 36, "T")
-    target = filler(10) + seq + filler(10)
-
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=0)
-    print_report("Case 3a: mismatches, tolerance 0", result)
-    check(product_lengths(result) == [], "no product when no mismatches are allowed")
-    check(result["outcomes"]["forward"] == "mismatched", "forward is 'mismatched'")
-    check(result["assay"] == "no product", "assay is 'no product'")
-    check(result["near_misses"]["forward"]["changes"] ==
-          [{"from_3prime": 1, "primer": "C", "genome": "G"}],
-          "forward near-miss: 1 from 3' end, primer C, genome G")
-    check(result["near_misses"]["reverse"]["changes"] ==
-          [{"from_3prime": 1, "primer": "G", "genome": "A"}],
-          "reverse near-miss: 1 from 3' end, primer G, genome A")
-
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=1)
-    print_report("Case 3b: mismatches, tolerance 1", result)
-    check(product_lengths(result) == [52], "one product when 1 mismatch is allowed")
-    check(result["products"][0]["left"]["mismatch_from_3prime"] == [1],
-          "forward mismatch reported at the 3'-terminal base")
-    check(result["products"][0]["right"]["mismatch_from_3prime"] == [1],
-          "reverse mismatch reported at the 3'-terminal base")
-    check(result["products"][0]["three_prime_risk"], "product is flagged 3' at risk")
-    check(len(result["warnings"]) == 1, "one 3' at risk warning is printed")
-
-
-# -- Case 3c: mismatch far from the 3' end -----------------------------------
-# Change the forward site's FIRST base (offset 0): distance 16 from the 3' end.
-def case_mismatch_5prime():
-    target = filler(10) + mutate(amplicon(), 0, "C") + filler(10)
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=1)
-    print_report("Case 3c: mismatch at the 5' end", result)
-    check(result["products"][0]["left"]["changes"] ==
-          [{"from_3prime": 16, "primer": "G", "genome": "C"}],
-          "forward mismatch 16 from 3' end: primer G, genome C")
-    check(not result["products"][0]["three_prime_risk"], "a 5' mismatch is NOT 3' at risk")
-
-
-# -- Case 4: multiple products -----------------------------------------------
-# Two copies of the amplicon: 10 filler + amplicon + 30 filler + amplicon + 10.
-# Copy 1 at 10..62, copy 2 at 92..144. Products with max_length=1000:
-#   copy1 F x copy1 R = 52 bp, copy2 F x copy2 R = 52 bp,
-#   copy1 F x copy2 R = 144 - 10 = 134 bp  (the long "outer" product)
-# copy2 F x copy1 R faces away -> no product.
-def case_multiple_products():
-    target = filler(10) + amplicon() + filler(30) + amplicon() + filler(10)
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=0)
-    print_report("Case 4: two copies of the target", result)
-    check(len(result["sites"]) == 4, "4 binding sites (2 forward, 2 reverse)")
-    check(product_lengths(result) == [52, 52, 134], "products of 52, 52 and 134 bp")
-
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=0, max_length=100)
-    print_report("Case 4b: same, max product length 100", result)
-    check(product_lengths(result) == [52, 52], "the 134 bp product is dropped when the limit is 100")
-
-
-# -- Case 5: primers facing away from each other -----------------------------
-# Put the reverse site FIRST and the forward site after it:
-# they point away from each other, so nothing is amplified.
-def case_facing_away():
-    target = filler(10) + REVERSE_SITE + INSERT + FAKE_FORWARD + filler(10)
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=0)
-    print_report("Case 5: primers facing away", result)
-    check(len(result["sites"]) == 2, "both primers still bind")
-    check(result["assay"] == "no product", "but no product forms")
-
-
-# -- Case 6: no binding site at all ------------------------------------------
-def case_no_site():
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, filler(200), max_mismatches=2)
-    print_report("Case 6: target without the primer sites", result)
-    check(len(result["sites"]) == 0, "no sites")
-    check(result["assay"] == "no product", "assay is 'no product'")
-    check(result["near_misses"]["forward"] is None, "no near-miss either: nothing is close")
-
-
-# =============================================================================
-# SECTION 12: CASES SOLVABLE BY HAND: BAD SEQUENCING DATA (version 2)
-# -----------------------------------------------------------------------------
-# Each case imitates a trace that poor sequencing leaves in a finished genome
-# and checks the model says "not assessable" instead of "mismatched".
-# =============================================================================
-
-# -- Case 7: Ns inside a primer site -----------------------------------------
-# Replace amplicon offsets 5 and 6 (inside the forward site) with N.
-# On the "+" strand, offset 5 is 16-5 = 11 and offset 6 is 16-6 = 10 bases
-# from the 3' end. With tolerance 0 the Ns must NOT count as mismatches.
-def case_n_in_site():
-    seq = mutate(mutate(amplicon(), 5, "N"), 6, "N")
-    target = filler(10) + seq + filler(10)
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=0)
-    print_report("Case 7: Ns inside the forward site", result)
-    forward_site = site_of(result, "forward")
-    check(forward_site["mismatches"] == 0, "Ns are not counted as mismatches")
-    check(forward_site["unknown_from_3prime"] == [10, 11], "Ns reported 10 and 11 bases from the 3' end")
-    check(result["outcomes"]["forward"] == "not assessable", "forward is 'not assessable'")
-    check(result["outcomes"]["reverse"] == "binds", "reverse still binds")
-    check(result["assay"] == "not assessable", "assay is 'not assessable'")
-
-
-# -- Case 8: sequence ends partway through a primer site ---------------------
-# target = 10 filler + forward site + insert + first 12 bases of the reverse
-# site. The reverse site would span 46..62 but the sequence stops at 58, so
-# 12 of its 16 bases are present (>= 10 required) and all of them match.
-def case_truncated_end():
-    target = filler(10) + FAKE_FORWARD + INSERT + REVERSE_SITE[:12]
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=0)
-    print_report("Case 8: sequence stops inside the reverse site", result)
-    check(site_of(result, "reverse")["reason"] == "runs off the end of the sequence",
-          "reason is 'runs off the end'")
-    check(result["outcomes"]["reverse"] == "not assessable", "reverse is 'not assessable'")
-    check(result["assay"] == "not assessable", "assay is 'not assessable'")
-
-
-# -- Case 9: sequence starts partway through a primer site -------------------
-# Drop the first 4 bases of the amplicon: 12 of the forward site's 16 bases
-# remain at the very start of the sequence, so it "runs off the start".
-def case_truncated_start():
-    target = amplicon()[4:] + filler(10)
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=0)
-    print_report("Case 9: sequence starts inside the forward site", result)
-    forward_site = site_of(result, "forward")
-    check(forward_site["start"] == -4, "forward site would have started 4 bases before the sequence")
-    check(forward_site["reason"] == "runs off the start of the sequence", "reason is 'runs off the start'")
-    check(result["assay"] == "not assessable", "assay is 'not assessable'")
-
-
-# -- Case 10: real mismatches next to missing data ---------------------------
-# Three real mismatches in the reverse site (amplicon offsets 40, 44, 48)
-# plus an N in the forward site. Tolerance 1: the reverse primer has more
-# real differences than allowed, so it is "mismatched". Because the reverse
-# primer cannot bind anywhere, no product is possible whatever the N hides:
-# the assay is "no product", NOT "not assessable" (fixed in version 3).
-# The 3 mismatches are spaced 4 bases apart, cutting the reverse site into
-# stretches of at most 4 bases, so the near-miss search (which needs an exact
-# 5-base stretch) reports "none close". This shows that limit honestly.
-def case_mismatched_beats_unknown():
-    seq = amplicon()
-    for offset in (40, 44, 48):
-        seq = change_base(seq, offset)
-    seq = mutate(seq, 3, "N")
-    target = filler(10) + seq + filler(10)
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=1)
-    print_report("Case 10: reverse truly mismatched, N elsewhere", result)
-    check(result["outcomes"]["reverse"] == "mismatched", "reverse is 'mismatched'")
-    check(result["outcomes"]["forward"] == "not assessable", "forward is 'not assessable'")
-    check(result["assay"] == "no product", "assay is 'no product': the N cannot rescue it")
-    check(result["near_misses"]["reverse"] is None,
-          "near-miss not found: no exact 5-base stretch left (known limit)")
-
-
-# =============================================================================
-# SECTION 13: CASES SOLVABLE BY HAND: EDGE CASES (version 3)
-# -----------------------------------------------------------------------------
-# Situations the earlier cases did not cover.
-# =============================================================================
-
-# -- Case 11: a primer pairs with itself -------------------------------------
-# Put the forward primer's reverse complement where the reverse site would be.
-# The forward primer now binds "+" at 10..26 AND "-" at 46..62, so it makes a
-# 52 bp product on its own; the reverse primer binds nowhere.
-def case_self_pairing():
-    target = filler(10) + FAKE_FORWARD + INSERT + reverse_complement(FAKE_FORWARD) + filler(10)
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=0)
-    print_report("Case 11: forward primer pairs with itself", result)
-    product = result["products"][0]
-    check((product["left"]["primer"], product["right"]["primer"]) == ("forward", "forward"),
-          "the product is forward x forward")
-    check(product_lengths(result) == [52], "it is 52 bp")
-    check(result["outcomes"]["reverse"] == "mismatched", "the reverse primer does not bind")
-
-
-# -- Case 12: overlapping primer sites ---------------------------------------
-# A second reverse primer whose site starts INSIDE the forward site:
-# site = last 5 bases of the forward site + first 11 bases of the insert.
-# Forward site 10..26, overlapping reverse site 21..37 -> product 10..37 = 27 bp.
-OVERLAP_REVERSE = reverse_complement(FAKE_FORWARD[-5:] + INSERT[:11])
-
-
-def case_overlapping_sites():
-    target = filler(10) + FAKE_FORWARD + INSERT[:11] + filler(10)
-    result = run_model(FAKE_FORWARD, OVERLAP_REVERSE, target, max_mismatches=0)
-    print_report("Case 12: primer sites overlap by 5 bases", result)
-    check(site_of(result, "reverse")["start"] == 21, "reverse site starts at 21, inside the forward site")
-    check(product_lengths(result) == [27], "one 27 bp product")
-
-
-# -- Case 13: mismatch allowance too high for the primer length --------------
-# 16 bases // (3 + 1) pieces = 4 bases per piece, shorter than k = 5,
-# so the search cannot guarantee it finds every site. It must stop with an error.
-def case_allowance_too_high():
-    print("\n--- Case 13: 3 mismatches allowed on a 16-base primer ---")
-    try:
-        run_model(FAKE_FORWARD, FAKE_REVERSE, amplicon(), max_mismatches=3)
-        check(False, "an error is raised")
-    except ValueError as error:
-        print(f"  error message: {error}")
-        check(True, "an error is raised instead of a silently incomplete search")
-
-
-# -- Case 14: palindromic primer binds both strands at the same spot ---------
-# GCATGCATATGCATGC is its own reverse complement, so ONE place in the target
-# is a "+" site and a "-" site at once (both 10..26). The two sites face each
-# other, but the "product" would be only 16 bp (< 20 minimum): no product.
-PALINDROME = "GCATGCATATGCATGC"
-
-
-def case_palindrome():
-    target = filler(10) + PALINDROME + filler(10)
-    result = run_model(PALINDROME, FAKE_REVERSE, target, max_mismatches=0)
-    print_report("Case 14: palindromic primer", result)
-    strands = sorted((s["strand"], s["start"]) for s in result["sites"] if s["primer"] == "forward")
-    check(strands == [("+", 10), ("-", 10)], "same spot found on both strands")
-    check(result["assay"] == "no product", "no product (16 bp is below the 20 bp minimum)")
-
-
-# -- Case 15: degenerate base in the primer ----------------------------------
-# Forward primer with Y (= C or T) at offset 8: GTTCAGAGYTACTGAC.
-# Genome C or T at that spot -> 0 mismatches. Genome A -> 1 mismatch,
-# 16 - 8 = 8 bases from the 3' end, reported as "primer Y, genome A".
-DEGENERATE_FORWARD = mutate(FAKE_FORWARD, 8, "Y")
-
-
-def case_degenerate_primer():
-    for genome_base in ("C", "T"):
-        target = filler(10) + mutate(amplicon(), 8, genome_base) + filler(10)
-        result = run_model(DEGENERATE_FORWARD, FAKE_REVERSE, target, max_mismatches=0)
-        print_report(f"Case 15: primer Y, genome {genome_base}", result)
-        check(site_of(result, "forward")["mismatches"] == 0, f"Y matches genome {genome_base}")
-
-    target = filler(10) + mutate(amplicon(), 8, "A") + filler(10)
-    result = run_model(DEGENERATE_FORWARD, FAKE_REVERSE, target, max_mismatches=1)
-    print_report("Case 15: primer Y, genome A", result)
-    check(site_of(result, "forward")["changes"] == [{"from_3prime": 8, "primer": "Y", "genome": "A"}],
-          "Y does not match genome A: 8 from 3' end, primer Y, genome A")
-
-
-# -- Case 16: probe binds inside the product ---------------------------------
-# Probe = the 20-base insert, which sits between the primer sites.
-def case_probe_binds():
-    target = filler(10) + amplicon() + filler(10)
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, probe=FAKE_PROBE, max_mismatches=0)
-    print_report("Case 16: probe binds inside the product", result)
-    check(result["products"][0]["probe"] == "binds", "probe binds inside the 52 bp product")
-    check(result["assay"] == "product", "assay is 'product'")
-
-
-# -- Case 17: primers bind but the probe does not ----------------------------
-# Three real mismatches in the insert (amplicon offsets 18, 25, 31), tolerance 1.
-# Both primers still bind and copy the DNA, but the probe cannot bind, so a
-# qPCR machine would see no fluorescence: "no signal".
-def case_probe_mismatched():
-    seq = amplicon()
-    for offset in (18, 25, 31):
-        seq = change_base(seq, offset)
-    target = filler(10) + seq + filler(10)
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, probe=FAKE_PROBE, max_mismatches=1)
-    print_report("Case 17: probe has 3 mismatches", result)
-    check(result["outcomes"]["forward"] == "binds" and result["outcomes"]["reverse"] == "binds",
-          "both primers bind")
-    check(result["products"][0]["probe"] == "mismatched", "the probe does not bind")
-    check(result["assay"] == "no signal", "assay is 'no signal'")
-
-
-# -- Case 18: deletion inside a primer site ----------------------------------
-# Delete 2 bases from the middle of the forward site (amplicon offsets 6-7).
-# Without gaps this looks like many mismatches; the near-miss search should
-# explain it as ONE event: a 2-base deletion. (2 is the longest deletion a
-# 16-base primer can show: 16 - 2 = 14 = MIN_MATCHED_BASES.)
-def case_deletion():
-    seq = amplicon()
-    target = filler(10) + seq[:6] + seq[8:] + filler(10)
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=1)
-    print_report("Case 18: 2-base deletion in the forward site", result)
-    miss = result["near_misses"]["forward"]
-    check(result["outcomes"]["forward"] == "mismatched", "forward is 'mismatched'")
-    check(miss["events"] == 1, "near-miss is 1 event, not many mismatches")
-    check((miss["indel"]["kind"], miss["indel"]["length"]) == ("deletion", 2), "explained as a 2-base deletion")
-
-
-# -- Case 18b: a 6-base deletion is too long for a 16-base primer -----------
-# Delete 6 bases (offsets 5-10): only 10 primer bases would still match,
-# fewer than MIN_MATCHED_BASES (14), so the model refuses to guess.
-def case_deletion_too_long():
-    seq = amplicon()
-    target = filler(10) + seq[:5] + seq[11:] + filler(10)
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=1)
-    print_report("Case 18b: 6-base deletion in a 16-base primer site", result)
-    check(result["near_misses"]["forward"] is None, "no near-miss: too few matching bases to be sure")
-
-
-# -- Case 19: insertion inside a primer site ---------------------------------
-# Insert TTT into the middle of the reverse site (after amplicon offset 43).
-def case_insertion():
-    seq = amplicon()
-    target = filler(10) + seq[:44] + "TTT" + seq[44:] + filler(10)
-    result = run_model(FAKE_FORWARD, FAKE_REVERSE, target, max_mismatches=1)
-    print_report("Case 19: 3-base insertion in the reverse site", result)
-    miss = result["near_misses"]["reverse"]
-    check(result["outcomes"]["reverse"] == "mismatched", "reverse is 'mismatched'")
-    check(miss["events"] == 1, "near-miss is 1 event")
-    check((miss["indel"]["kind"], miss["indel"]["length"]) == ("insertion", 3), "explained as a 3-base insertion")
-
-
-# =============================================================================
-# SECTION 14: RUN EVERY CASE
-# =============================================================================
-
-if __name__ == "__main__":
-    case_exact_match()
-    case_reverse_strand()
-    case_mismatches()
-    case_mismatch_5prime()
-    case_multiple_products()
-    case_facing_away()
-    case_no_site()
-    case_n_in_site()
-    case_truncated_end()
-    case_truncated_start()
-    case_mismatched_beats_unknown()
-    case_self_pairing()
-    case_overlapping_sites()
-    case_allowance_too_high()
-    case_palindrome()
-    case_degenerate_primer()
-    case_probe_binds()
-    case_probe_mismatched()
-    case_deletion()
-    case_deletion_too_long()
-    case_insertion()
-    print("\nAll hand-solvable cases passed.")
+def read_fasta(path):
+    """Return (header, sequence) from a single-record FASTA file."""
+    header, lines = "", []
+    with open(path) as handle:
+        for line in handle:
+            line = line.strip()
+            if line.startswith(">"):
+                header = line[1:]
+            elif line:
+                lines.append(line)
+    return header, "".join(lines).upper()
