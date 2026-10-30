@@ -179,7 +179,7 @@ answer could be worked out by hand first (7 test cases).
 
 ## Log 6 · 2026-10-30 · First variant results (quick first pass)
 
-**Commits:** `f0b44dd`, `761fe07` (#35), then #36 (filled in at the next update)
+**Commits:** `f0b44dd`, `761fe07` (#35), `5834b32` (#36), then #37 and the session logs (filled in at the next update)
 
 ### What I did
 - Wrote a quick script, `variant_check.py`, that runs the CDC N1, N2 and N3
@@ -196,19 +196,56 @@ answer could be worked out by hand first (7 test cases).
 - Settled the N1 size question: the primer positions span 72 bases, the
   genome gives 72, and an outside database also says 72, so the 73 in my table
   was a typo. I changed it to 72 and every CDC check now passes **(#36)**.
+- Found where the Omicron N1 probe mismatch is: genome position 28311, a C
+  changed to T, the 3rd base of the probe. It is a known Omicron mutation
+  (N:P13L), not just something odd about my one genome **(#37)**.
+- Learned that my model only uses the number of mismatches to decide
+  "binds". How bad a mismatch is and its 3' risk are only shown as warnings,
+  so I need to read that column too **(#37)**.
+- Went over the qPCR background: primers on opposite strands, cycles, Ct
+  (the cycle where the signal crosses the threshold), ΔCt and ΔΔCt with a
+  reference gene, fold change = 2^(−ΔΔCt), why the threshold sits in the
+  exponential phase, melting temperature (Tm), and how a TaqMan probe makes
+  the signal.
 
 ### Things to work on for next time
-- Check where the Omicron N1 probe mismatch is and whether it is the known
-  N gene mutation in that region.
-- Use more than one genome per variant, since one isolate may not be typical.
+- Use more than one genome per variant, since one isolate may not be typical,
+  and check that the C28311T change is in other Omicron BA.1 genomes too.
 - Add the positive control from the proposal: a primer across Alpha's spike
   69-70 deletion must fail on the Alpha genome.
-- Start the next factor: melting temperature with the nearest-neighbor model,
-  checked against the Primer3 values in `data/primers/`.
+- Start the next factor: melting temperature (Tm) with the nearest-neighbor
+  model, checked against the Primer3 values in `data/primers/`. Then work out
+  each primer's Tm on each variant (mismatches lower it) and compare it with
+  the test's annealing temperature (about 55 °C in the CDC protocol; check
+  this). A Tm that drops close to it means the primer binds poorly.
+  - The SantaLucia table I have is for 1 M salt, but the Primer3 values used
+    50 mM salt and 3 mM magnesium, so I need a salt correction before the
+    numbers can match.
+  - I also need the mismatch values (Allawi & SantaLucia), since my table
+    only has perfectly matched pairs.
+  - Start with the N1 probe on Omicron: how much does C28311T lower its Tm?
+- Look at the probe separately. A TaqMan probe only gives light if it is
+  bound when the polymerase reaches it, so a weaker probe can make the Ct
+  come later and the virus look like less than it is, even when the primers
+  work fine.
+- Go one step past Tm: work out how much of the primer is bound at the
+  annealing temperature, as a step toward predicting a Ct shift.
+- Maybe let a high 3' risk change the result instead of only showing a
+  warning.
+- Later: hairpins and primer-dimers, the RT step, and the CDC run conditions.
+- Maybe add a spike-targeting primer set to compare with the CDC N assays. My
+  idea: spike changes faster because the virus gains from escaping immunity
+  there, while the N gene regions the CDC picked are more constrained. So a
+  spike primer should pick up more mismatches across Alpha, Delta and Omicron.
+  This happens over months as new variants take over, not in a few rounds of
+  copying. A primer across Alpha's spike 69-70 deletion would also be the
+  positive control above.
 
 ---
 
 ## Where things stand
 Still open after version 4 (details at the end of
-`modification documentation.md`): a few search limits.
-The first variant run (Log 6) used only one genome per variant.
+`modification documentation.md`): a few search limits, and binding is
+still yes/no. The first variant run (Log 6) used only one genome per variant.
+Next: melting temperature (factor 2); the plan is under "Planned" at the end
+of `modification documentation.md`.

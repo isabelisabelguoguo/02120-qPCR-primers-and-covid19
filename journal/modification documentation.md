@@ -265,7 +265,7 @@ shortened #1 to the seeding limit.
 
 ## Log 6 · 2026-10-30 · First variant results (quick first pass)
 
-**Commits:** `f0b44dd`, `761fe07` (#35), then #36 (filled in at the next update)
+**Commits:** `f0b44dd`, `761fe07` (#35), `5834b32` (#36), then #37 and the session logs (filled in at the next update)
 
 **#33. Problem:** the model had only been run on the reference genome, not on
 the variants the project asks about.
@@ -302,6 +302,18 @@ a data-entry error: `pub_amplicon_bp` for N1 in
 `data/primers/CDC primer sequences.tsv` changed from 73 to 72. All CDC
 reference checks now pass.
 
+**#37. Problem:** #33 found 1 mismatch in the N1 probe on Omicron but did
+not say where it is or whether it is a real lineage mutation.
+**Finding:** a one-off comparison of the reference and
+`Omicron_BA.1_OL672836.1.fasta` at the N1 probe site (28309–28332) puts it at
+**28311, C→T**, base 3 from the probe's 5' end. This is the known Omicron
+mutation **N:P13L** (nucleocapsid codon 13, proline → leucine), so it is a
+lineage change, not an isolate quirk. No code changed.
+Note (from reading `find_binding_sites` and `product_status`): mismatch
+severity and `three_prime_risk` are labels only. The binds/product decision
+uses the mismatch count alone, so a severe 3' mismatch still gives
+"product" with a `[3' RISK: HIGH]` warning.
+
 ---
 
 ## Still open (known limits after version 4)
@@ -315,3 +327,54 @@ reference checks now pass.
 - The k-mer index is rebuilt on every run; the test suite takes ~14 s.
 - The mismatch allowance can only be changed in the code.
 - Variants checked with one isolate each (#33).
+- Severity and 3' risk do not change the outcome; only the mismatch count
+  decides "binds" (#37).
+- Binding is yes/no: a mismatch that still binds (e.g. the Omicron N1 probe,
+  #37) may lower efficiency or probe signal and give a later Ct, which the
+  model cannot show yet.
+
+## Planned (not built yet)
+- **Factor 2: melting temperature (Tm), nearest-neighbor model.** Sum the
+  SantaLucia (1998) stack values in `data/thermodynamics/santalucia_1998_nn.tsv`
+  (ΔH, ΔS, plus initiation and symmetry terms) and use
+  Tm = ΔH / (ΔS + R·ln(C/4)) − 273.15.
+  - **Salt correction:** the table is for 1 M NaCl, but
+    `primer3_reference_tm.tsv` used 50 mM monovalent, 3 mM Mg²⁺, 0.8 mM dNTP,
+    250 nM oligo. Add a monovalent + Mg²⁺ correction (dNTPs bind some Mg²⁺);
+    find out which correction Primer3 uses, then match its Tm values as the
+    first check.
+  - **Mismatch parameters:** the table has only the 10 matched stacks. Add the
+    Allawi & SantaLucia (1997–1998) mismatch stack values so Tm can be
+    computed on a variant's real site (G·T is mild, C·C or A·A much worse).
+  - **Compare with the annealing temperature** of the CDC protocol (about
+    55 °C; to be checked against the protocol) and report each oligo's Tm
+    drop per variant. First target: the N1 probe on Omicron (C28311T, #37).
+- **Fraction bound at the annealing temperature.** Tm is only the 50% point;
+  ΔG at the annealing temperature gives the fraction of oligo bound, a step
+  from yes/no binding toward lost efficiency and a predicted Ct shift.
+- **Probe-specific check (TaqMan).** The probe is cleaved by the polymerase
+  only if bound when it arrives; CDC probes sit about 10 °C above the primers
+  (N1 probe 71.2 °C vs 60.6 / 64.5 °C). A probe mismatch can leave
+  amplification intact but lower the signal, so the Ct comes later and the
+  amount looks lower (a possible false negative near the cycle-40 cutoff).
+  Report probe Tm margin separately from primer Tm.
+- **Let 3' risk affect the outcome** (optional): e.g. a HIGH 3' risk marks the
+  product "at risk" instead of a plain "product" (#37).
+- **Later factors:** hairpins and primer-dimers (Primer3 ΔG columns already in
+  `primer3_reference_tm.tsv`), the RT step (reverse primer starts the cDNA;
+  RNA secondary structure at the site), and the CDC run conditions (primer and
+  probe concentrations, cycling).
+- **More genomes per variant**, and confirm C28311T across Omicron BA.1
+  sequences (#33, #37).
+- **Spike-targeting comparison assay.** Hypothesis: oligos in regions under
+  strong selection (spike, especially the receptor-binding domain and
+  antibody sites) gain mismatches across variants faster than oligos in
+  functionally constrained regions (CDC N1/N2/N3 in the N gene). The change
+  is driven by selection, not GC content, and shows up over months as
+  variants replace one another, not within a few replication cycles.
+  Plan: add a spike primer/probe set (e.g. a TaqPath-style S target) to
+  `data/primers/`, run it with `run_model` alongside N1/N2/N3 in
+  `variant_check.py`, and compare mismatch counts and `three_prime_risk` per
+  variant. A primer across Alpha's ΔH69/V70 (about 21765–21770) doubles as
+  the positive control (should fail on Alpha and Omicron BA.1, which also
+  carries the deletion).
