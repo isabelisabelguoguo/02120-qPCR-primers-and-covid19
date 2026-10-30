@@ -1,0 +1,130 @@
+TEST CASES: FIRST MODEL: FACTOR: SPECIFICITY (version 2)
+=========================================================
+Code: journal/first_model_factor_specificity.py  (Sections 9 and 10)
+Run:  python3 journal/first_model_factor_specificity.py
+
+All cases use fake 16-base primers and a fake target built by hand,
+so every expected answer is worked out on paper before running.
+
+Fake pieces:
+  Forward primer   GTTCAGAGCTACTGAC
+  Reverse primer   TCCGATAGTCAGCTTG
+  Reverse site     CAAGCTGACTATCGGA   (reverse primer as it appears on the + strand)
+  Insert           CGTACGTTGCATGCCTAGGT
+  Filler           AAAA...            (poly-A, no primer can bind it)
+  Amplicon         forward + insert + reverse site = 16 + 20 + 16 = 52 bp
+
+Outcomes:
+  Primer: binds / mismatched / not assessable
+  Assay:  product / no product / not assessable
+  ^ marks a planted mismatch or N in the target.
+
+
+CORE CASES (version 1)
+----------------------
+
+Case 1 - Exact match
+  Mismatches allowed: 0
+  Target:   AAAAAAAAAAGTTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
+  Outcome:  forward binds, reverse binds -> product, 52 bp (positions 10-62)
+  Meaning:  Baseline: perfect primers give exactly one product of the right
+            size. If this fails, nothing else can be trusted.
+
+Case 2 - Reverse strand
+  Mismatches allowed: 0
+  Target:   TTTTTTTTTTTCCGATAGTCAGCTTGACCTAGGCATGCAACGTACGGTCAGTAGCTCTGAACTTTTTTTTTT
+            (Case 1 target, reverse-complemented)
+  Outcome:  forward binds, reverse binds -> product, 52 bp
+            (the reverse primer is now the "+" site, forward the "-" site)
+  Meaning:  Primers can bind either DNA strand; a model checking only one
+            strand would miss real products.
+
+Case 3a - Mismatches at the 3' end, none allowed
+  Mismatches allowed: 0
+  Target:   AAAAAAAAAAGTTCAGAGCTACTGAGCGTACGTTGCATGCCTAGGTTAAGCTGACTATCGGAAAAAAAAAAA
+                                     ^                    ^
+  Outcome:  forward mismatched, reverse mismatched -> no product
+  Meaning:  With zero tolerance, one mismatch per primer is enough to lose
+            the product.
+
+Case 3b - Same target, 1 mismatch allowed
+  Mismatches allowed: 1
+  Target:   (same as 3a)
+  Outcome:  forward binds, reverse binds -> product, 52 bp
+            both mismatches reported 1 base from the 3' end
+  Meaning:  The user-set allowance works, and mismatches are located at the
+            3' end, where they matter most for amplification.
+
+Case 3c - Mismatch at the 5' end
+  Mismatches allowed: 1
+  Target:   AAAAAAAAAACTTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
+                      ^
+  Outcome:  forward binds, reverse binds -> product, 52 bp
+            forward mismatch reported 16 bases from the 3' end
+  Meaning:  Position counting runs the right direction.
+
+Case 4 - Multiple products
+  Mismatches allowed: 0
+  Target:   AAAAAAAAAAGTTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGTTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
+            (two copies of the amplicon)
+  Outcome:  forward binds, reverse binds -> 3 products: 52, 52 and 134 bp
+  Meaning:  Primers that bind more than one place make extra products,
+            including a long one spanning both copies.
+
+Case 4b - Same target, max product length 100
+  Mismatches allowed: 0
+  Target:   (same as 4)
+  Outcome:  forward binds, reverse binds -> 2 products: 52 and 52 bp
+  Meaning:  The product length limit removes implausibly long products.
+
+Case 5 - Primers facing away
+  Mismatches allowed: 0
+  Target:   AAAAAAAAAACAAGCTGACTATCGGACGTACGTTGCATGCCTAGGTGTTCAGAGCTACTGACAAAAAAAAAA
+            (reverse site first, forward site second)
+  Outcome:  forward binds, reverse binds -> no product
+  Meaning:  Binding alone is not enough; the primers must face each other.
+
+Case 6 - No site
+  Mismatches allowed: 2
+  Target:   200 x A
+  Outcome:  forward mismatched, reverse mismatched -> no product
+  Meaning:  Guards against false positives.
+
+
+BAD-DATA CASES (version 2)
+--------------------------
+
+Case 7 - Ns inside a primer site
+  Mismatches allowed: 0
+  Target:   AAAAAAAAAAGTTCANNGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
+                           ^^
+  Outcome:  forward not assessable (0 mismatches, Ns 10 and 11 bases from
+            the 3' end), reverse binds -> not assessable
+  Meaning:  Poorly sequenced regions are written as N. They are missing data,
+            not mutations, so they are not counted as mismatches.
+
+Case 8 - Sequence ends inside a primer site
+  Mismatches allowed: 0
+  Target:   AAAAAAAAAAGTTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTAT
+            (stops after 12 of the reverse site's 16 bases)
+  Outcome:  forward binds, reverse not assessable ("runs off the end")
+            -> not assessable
+  Meaning:  Real genomes often have trimmed ends; a cut-off site is missing
+            data, not a failed primer.
+
+Case 9 - Sequence starts inside a primer site
+  Mismatches allowed: 0
+  Target:   AGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
+            (first 4 bases of the forward site are missing)
+  Outcome:  forward not assessable ("runs off the start"), reverse binds
+            -> not assessable
+  Meaning:  Same as Case 8, at the other end of the sequence.
+
+Case 10 - Real mismatches next to missing data
+  Mismatches allowed: 1
+  Target:   AAAAAAAAAAGTTNAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGATGAATATAGGAAAAAAAAAAA
+                         ^                                    ^   ^   ^
+  Outcome:  forward not assessable (one N), reverse mismatched (3 real
+            mismatches) -> not assessable
+  Meaning:  Missing data elsewhere does not excuse a primer that truly
+            fails: the reverse primer is still reported as mismatched.

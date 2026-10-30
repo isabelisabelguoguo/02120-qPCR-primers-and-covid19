@@ -31,7 +31,7 @@
 # =============================================================================
 #
 # -----------------------------------------------------------------------------
-# NOTE TO READERS: HOW VERSION 2 HANDLES BAD SEQUENCING DATA
+# HANDLING BAD SEQUENCING DATA
 # -----------------------------------------------------------------------------
 # The genomes this project uses are finished consensus sequences from NCBI:
 # reads were already aligned and assembled by whoever uploaded them, so read
