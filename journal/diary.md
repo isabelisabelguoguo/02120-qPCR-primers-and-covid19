@@ -179,7 +179,7 @@ answer could be worked out by hand first (7 test cases).
 
 ## Log 6 · 2026-10-30 · First variant results (quick first pass)
 
-**Commit:** filled in at the next update
+**Commits:** `f0b44dd`, then #35 (filled in at the next update)
 
 ### What I did
 - Wrote a quick script, `variant_check.py`, that runs the CDC N1, N2 and N3
@@ -191,6 +191,8 @@ answer could be worked out by hand first (7 test cases).
   **(#33)**.
 - Renamed the genome files to clean `.fasta` names, so the program can find
   them and the names say which variant each one is **(#34)**.
+- Set git to ignore Mac `.DS_Store` files and Python's `__pycache__` folder,
+  so they stop showing up as changes **(#35)**.
 
 ### Things to work on for next time
 - Settle the N1 size question (72 vs 73 bp) by checking Lu et al. (2020)

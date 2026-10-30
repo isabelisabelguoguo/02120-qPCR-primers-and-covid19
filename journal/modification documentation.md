@@ -266,7 +266,7 @@ shortened #1 to the seeding limit.
 
 ## Log 6 · 2026-10-30 · First variant results (quick first pass)
 
-**Commit:** filled in at the next update
+**Commits:** `f0b44dd`, then #35 (filled in at the next update)
 
 **#33. Problem:** the model had only been run on the reference genome, not on
 the variants the project asks about.
@@ -287,6 +287,12 @@ variants had no `.fasta` extension.
 `Alpha_B.1.1.7_MZ068155.fasta`, `Delta_B.1.617.2_MZ555945.fasta` and
 `Omicron_BA.1_OL672836.1.fasta`. `cdc_reference_check.py` finds the reference
 with a glob, so it needed no change (same results).
+
+**#35. Problem:** `.DS_Store` files (3 committed) kept showing as modified,
+even though `.gitignore` lists `.DS_Store` (it only stops new files), and
+`journal/__pycache__/` appeared after running the scripts.
+**Fix:** added `__pycache__/` to `.gitignore`; the committed `.DS_Store` files were removed from the repo with
+`git rm --cached` (kept on disk).
 
 ---
 
