@@ -38,10 +38,7 @@ numbered, and the diary points to them as **(#n)**.
 - Tests: 7 hand-solvable cases on fake 16-base primers and a poly-A-padded
   fake target.
 
-**#1. Problem:** the mismatch allowance (`max_mismatches`) was hard to find in
-the code.
-**Fix:** a starred `USER SETTING: MISMATCH ALLOWANCE` banner above
-`predict_products`, stating the seeding limit:
+**#1. Problem:** stating the seeding limit:
 (primer length) // (max_mismatches + 1) must be ≥ k.
 
 ---
@@ -234,7 +231,7 @@ imports the model. `read_fasta` added to the model for real genomes.
 
 ## Log 5 · 2026-10-30 · Documentation (no model change)
 
-**Commits:** `bfaff5d`, then the restore in #31
+**Commits:** `bfaff5d`, `526c2a5` (the restore in #31), then #32 (ID filled in at the next update)
 
 **#28. Problem:** this file was plain text (`.txt`), so its headings and labels
 showed as raw characters on GitHub.
@@ -259,6 +256,11 @@ committed one, deleting Log 5, the next-time list and every **(#n)** link,
 and pointing back to the removed `.txt` file.
 **Fix:** restored the committed version with `git checkout`, kept the user's
 shorter intro (pointing to the `.md` file), and filled in Log 5's commit ID.
+
+**#32. Problem:** the README title ("02120 project1") did not say what the
+project is about, and #1 here repeated the `USER SETTING` banner details.
+**Fix:** renamed the README title to "02120 qPCR primers and covid-19" and
+shortened #1 to the seeding limit.
 
 ---
 

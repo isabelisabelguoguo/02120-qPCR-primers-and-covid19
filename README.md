@@ -1,4 +1,4 @@
-# 02120 project1
+# 02120 qPCR primers and covid-19
 #qPCR
 # qPCR primer specificity across SARS-CoV-2 variants
 

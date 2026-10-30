@@ -148,7 +148,7 @@ answer could be worked out by hand first (7 test cases).
 
 ## Log 5 · 2026-10-30 · Documentation (no model change)
 
-**Commits:** `bfaff5d`, then the restore below
+**Commits:** `bfaff5d`, `526c2a5` (the restore), then the README update (filled in at the next update)
 
 ### What I did
 - Started this diary.
@@ -160,6 +160,8 @@ answer could be worked out by hand first (7 test cases).
   documents get updated with every commit **(#30)**.
 - My editor saved an older copy of this diary over the new one; I restored
   the full version and kept my shorter intro **(#31)**.
+- Renamed the README title to "02120 qPCR primers and covid-19" and shortened
+  item #1 in the modification documentation **(#32)**.
 
 ### Things to work on for next time
 - Settle the N1 size question (72 vs 73 bp) by checking Lu et al. (2020)
