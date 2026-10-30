@@ -231,7 +231,7 @@ imports the model. `read_fasta` added to the model for real genomes.
 
 ## Log 5 · 2026-10-30 · Documentation (no model change)
 
-**Commits:** `bfaff5d`, `526c2a5` (the restore in #31), `1a78e66` (#32), then the session log (ID filled in at the next update)
+**Commits:** `bfaff5d`, `526c2a5` (the restore in #31), `1a78e66` (#32), `289fb03` (the session log)
 
 **#28. Problem:** this file was plain text (`.txt`), so its headings and labels
 showed as raw characters on GitHub.
@@ -264,6 +264,32 @@ shortened #1 to the seeding limit.
 
 ---
 
+## Log 6 · 2026-10-30 · First variant results (quick first pass)
+
+**Commit:** filled in at the next update
+
+**#33. Problem:** the model had only been run on the reference genome, not on
+the variants the project asks about.
+**Fix:** new `variant_check.py` reuses `read_assays`, `PRIMER_TABLE`,
+`REFERENCE` and `MAX_MISMATCHES` from `cdc_reference_check.py` and calls
+`run_model` (allowance 2, probe included) for N1/N2/N3 on the reference and
+every `data/variants/*.fasta`. For each oligo, `fewest_mismatches` reports
+the lowest mismatch count among its binding sites; the table also shows the
+assay outcome, product size and 3' risk. Result: every assay gives a product
+on Alpha, Delta and Omicron (N1 72, N2 67, N3 72 bp, as on the reference);
+the only mismatch is 1 in the N1 probe on Omicron; no 3' risk.
+Limit: one isolate per variant.
+
+**#34. Problem:** the genome files had mangled names
+(`data:reference:NC_045512.2.fasta.`, `OmicronBA.1_OL672836.1.`) and the
+variants had no `.fasta` extension.
+**Fix:** renamed with `git mv` to `NC_045512.2.fasta`,
+`Alpha_B.1.1.7_MZ068155.fasta`, `Delta_B.1.617.2_MZ555945.fasta` and
+`Omicron_BA.1_OL672836.1.fasta`. `cdc_reference_check.py` finds the reference
+with a glob, so it needed no change (same results).
+
+---
+
 ## Still open (known limits after version 4)
 - N1 amplicon size: 72 bp computed vs 73 bp in the table (#23).
 - Near-miss and small-gap searches need an exact 5-base stretch (#15).
@@ -275,4 +301,4 @@ shortened #1 to the seeding limit.
 - Input is not cleaned of pasted spaces or line breaks.
 - The k-mer index is rebuilt on every run; the test suite takes ~14 s.
 - The mismatch allowance can only be changed in the code.
-- Not yet run on the Alpha, Delta and Omicron genomes.
+- Variants checked with one isolate each (#33).

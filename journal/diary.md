@@ -148,7 +148,7 @@ answer could be worked out by hand first (7 test cases).
 
 ## Log 5 · 2026-10-30 · Documentation (no model change)
 
-**Commits:** `bfaff5d`, `526c2a5` (the restore), `1a78e66` (the README update), then the session log (filled in at the next update)
+**Commits:** `bfaff5d`, `526c2a5` (the restore), `1a78e66` (the README update), `289fb03` (the session log)
 
 ### What I did
 - Started this diary.
@@ -177,7 +177,35 @@ answer could be worked out by hand first (7 test cases).
 
 ---
 
+## Log 6 · 2026-10-30 · First variant results (quick first pass)
+
+**Commit:** filled in at the next update
+
+### What I did
+- Wrote a quick script, `variant_check.py`, that runs the CDC N1, N2 and N3
+  assays on the reference and on the Alpha, Delta and Omicron genomes and
+  prints one table **(#33)**.
+- First answer: all three assays still give a product on all three variants,
+  at the same sizes as on the reference. The only change is one mismatch in
+  the N1 probe on Omicron, and no primer has a mismatch near its 3' end
+  **(#33)**.
+- Renamed the genome files to clean `.fasta` names, so the program can find
+  them and the names say which variant each one is **(#34)**.
+
+### Things to work on for next time
+- Settle the N1 size question (72 vs 73 bp) by checking Lu et al. (2020)
+  **(#23)**.
+- Check where the Omicron N1 probe mismatch is and whether it is the known
+  N gene mutation in that region.
+- Use more than one genome per variant, since one isolate may not be typical.
+- Add the positive control from the proposal: a primer across Alpha's spike
+  69-70 deletion must fail on the Alpha genome.
+- Start the next factor: melting temperature with the nearest-neighbor model,
+  checked against the Primer3 values in `data/primers/`.
+
+---
+
 ## Where things stand
 Still open after version 4 (details at the end of
-`modification documentation.md`): the N1 size question, a few search limits,
-and running the model on the Alpha, Delta and Omicron genomes.
+`modification documentation.md`): the N1 size question and a few search limits.
+The first variant run (Log 6) used only one genome per variant.
