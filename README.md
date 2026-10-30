@@ -32,4 +32,4 @@ targets survive.
 
 ## Running it
 
-Not yet implemented.
+current version does not account for annealing temperature, but includes pseudoprimers, solve-by-hand cases, and checks CDC primers
