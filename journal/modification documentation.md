@@ -207,8 +207,7 @@ N3's degenerate probe), and no RP product.
 **#23. Problem** (found by #22): N1 comes out at 72 bp, but the table lists
 73 bp. The table's own published (28303–28374) and verified (28287–28358)
 coordinates both span 72 bases.
-**Status: OPEN.** Left as a FAIL; check the 73 bp value against Lu et al.
-(2020) before changing it.
+**Status: RESOLVED in #36** (the table's 73 was wrong; 72 is correct).
 
 **#24. Problem:** nothing proved the fast k-mer search finds every site.
 **Fix:** Case 23 compares plain sites with `brute_force_sites` (every start
@@ -266,7 +265,7 @@ shortened #1 to the seeding limit.
 
 ## Log 6 · 2026-10-30 · First variant results (quick first pass)
 
-**Commits:** `f0b44dd`, then #35 (filled in at the next update)
+**Commits:** `f0b44dd`, `761fe07` (#35), then #36 (filled in at the next update)
 
 **#33. Problem:** the model had only been run on the reference genome, not on
 the variants the project asks about.
@@ -294,10 +293,18 @@ even though `.gitignore` lists `.DS_Store` (it only stops new files), and
 **Fix:** added `__pycache__/` to `.gitignore`; the committed `.DS_Store` files were removed from the repo with
 `git rm --cached` (kept on disk).
 
+**#36. Problem:** the N1 size question from #23 (72 bp computed vs 73 bp in
+the table) was still open, so `cdc_reference_check.py` reported 1 FAIL.
+**Fix:** the table's own coordinates (published 28303–28374, verified
+28287–28358) both give 72 bases, the reference genome gives 72, and the JRC
+SARS-CoV-2 diagnostics database lists the CDC N1 product as 72 bp. The 73 was
+a data-entry error: `pub_amplicon_bp` for N1 in
+`data/primers/CDC primer sequences.tsv` changed from 73 to 72. All CDC
+reference checks now pass.
+
 ---
 
 ## Still open (known limits after version 4)
-- N1 amplicon size: 72 bp computed vs 73 bp in the table (#23).
 - Near-miss and small-gap searches need an exact 5-base stretch (#15).
 - Near-miss limits (#16, #17) were tuned on random sequence, not real genomes
   with repeats.

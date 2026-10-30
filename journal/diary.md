@@ -179,7 +179,7 @@ answer could be worked out by hand first (7 test cases).
 
 ## Log 6 · 2026-10-30 · First variant results (quick first pass)
 
-**Commits:** `f0b44dd`, then #35 (filled in at the next update)
+**Commits:** `f0b44dd`, `761fe07` (#35), then #36 (filled in at the next update)
 
 ### What I did
 - Wrote a quick script, `variant_check.py`, that runs the CDC N1, N2 and N3
@@ -193,10 +193,11 @@ answer could be worked out by hand first (7 test cases).
   them and the names say which variant each one is **(#34)**.
 - Set git to ignore Mac `.DS_Store` files and Python's `__pycache__` folder,
   so they stop showing up as changes **(#35)**.
+- Settled the N1 size question: the primer positions span 72 bases, the
+  genome gives 72, and an outside database also says 72, so the 73 in my table
+  was a typo. I changed it to 72 and every CDC check now passes **(#36)**.
 
 ### Things to work on for next time
-- Settle the N1 size question (72 vs 73 bp) by checking Lu et al. (2020)
-  **(#23)**.
 - Check where the Omicron N1 probe mismatch is and whether it is the known
   N gene mutation in that region.
 - Use more than one genome per variant, since one isolate may not be typical.
@@ -209,5 +210,5 @@ answer could be worked out by hand first (7 test cases).
 
 ## Where things stand
 Still open after version 4 (details at the end of
-`modification documentation.md`): the N1 size question and a few search limits.
+`modification documentation.md`): a few search limits.
 The first variant run (Log 6) used only one genome per variant.
