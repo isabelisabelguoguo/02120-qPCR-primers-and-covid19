@@ -2,12 +2,8 @@
 
 02-120 Programming for Scientists · Isabel Guo
 
-One log per version of the model, newest at the bottom. Each log has the
-date, the version, what I did, and the main functions.
-
-**Reading alongside `modification documentation.md`:** both files use the same
-logs in the same order. The numbers in brackets, like **(#2)**, point to the
-matching numbered item there, which gives the technical details.
+One log per version of the model, see also `modification documentation.md`.
+The numbers in brackets, like **(#2)**, point to its matching numbered items.
 
 ---
 
@@ -152,7 +148,7 @@ answer could be worked out by hand first (7 test cases).
 
 ## Log 5 · 2026-10-30 · Documentation (no model change)
 
-**Commit:** filled in at the next update (a commit can't contain its own ID)
+**Commits:** `bfaff5d`, then the restore below
 
 ### What I did
 - Started this diary.
@@ -162,6 +158,8 @@ answer could be worked out by hand first (7 test cases).
   read side by side **(#29)**.
 - Added a "Things to work on for next time" list, and set the rule that both
   documents get updated with every commit **(#30)**.
+- My editor saved an older copy of this diary over the new one; I restored
+  the full version and kept my shorter intro **(#31)**.
 
 ### Things to work on for next time
 - Settle the N1 size question (72 vs 73 bp) by checking Lu et al. (2020)

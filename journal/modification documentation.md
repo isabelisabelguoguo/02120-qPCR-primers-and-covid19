@@ -234,7 +234,7 @@ imports the model. `read_fasta` added to the model for real genomes.
 
 ## Log 5 · 2026-10-30 · Documentation (no model change)
 
-**Commit:** filled in at the next update (a commit can't contain its own ID)
+**Commits:** `bfaff5d`, then the restore in #31
 
 **#28. Problem:** this file was plain text (`.txt`), so its headings and labels
 showed as raw characters on GitHub.
@@ -253,6 +253,12 @@ what is on GitHub.
 (added at the end of each session). From now on, every commit and push also
 updates `diary.md` and this file. A log's commit ID is filled in at the next
 update.
+
+**#31. Problem:** the editor saved an older copy of `diary.md` over the
+committed one, deleting Log 5, the next-time list and every **(#n)** link,
+and pointing back to the removed `.txt` file.
+**Fix:** restored the committed version with `git checkout`, kept the user's
+shorter intro (pointing to the `.md` file), and filled in Log 5's commit ID.
 
 ---
 
