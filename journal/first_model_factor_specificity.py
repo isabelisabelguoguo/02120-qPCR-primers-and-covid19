@@ -41,7 +41,7 @@
 #   cdc_reference_check.py                 - CDC N1/N2/N3 (+ RNase P control)
 #                                            on the real reference genome
 #   test_cases_specificity.txt             - every test case and its outcome
-#   modification documentation.txt         - every problem found and fixed
+#   modification documentation.md          - every problem found and fixed
 #
 # Run the tests with:     python3 journal/test_first_model_factor_specificity.py
 # Run the CDC check with: python3 journal/cdc_reference_check.py
