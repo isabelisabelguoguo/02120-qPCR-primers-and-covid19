@@ -1,5 +1,7 @@
 # Modification Documentation: First Model, Factor: Specificity
 
+(From Log 9 on, this file also covers the second model, factor: annealing temperature.)
+
 Every problem found in the specificity model and how it was fixed, in the
 order it happened, with the technical details.
 
@@ -16,6 +18,9 @@ numbered, and the diary points to them as **(#n)**.
 | `test_first_model_factor_specificity.py` | hand-solvable tests + search checks |
 | `cdc_reference_check.py` | CDC panel on the real reference genome |
 | `test_cases_specificity.txt` | every test case and its outcome |
+| `second_model_annealing_temp.py` | second model: Tm and binding at the annealing temperature (Log 9) |
+| `test_second_model_annealing_temp.py` | hand-solvable Tm tests + Primer3 check |
+| `variant_check_temperature.py` | CDC N1/N2/N3 Tm on every variant |
 | `diary.md` | plain-language log of each version |
 
 ---
@@ -379,7 +384,7 @@ is found (3 events, 3, 9 and 15 from the 3' end).
 
 ## Log 8 · 2026-11-09 · 3' risk changes the result; a mislabelled genome
 
-**Commit:** filled in at the next update
+**Commit:** `e6793bf`
 
 **#41. Problem:** a severe mismatch at a primer's 3' end only printed a
 warning; the product still counted as a plain "product" (#37), so a pair
@@ -425,6 +430,89 @@ rounds. These rules were confirmed against the code:
 
 ---
 
+## Log 9 · 2026-11-10 · Second model: annealing temperature
+
+**Commit:** filled in at the next update
+
+**#43. Problem:** binding was yes/no. A mismatch that the first model
+allows can still weaken the duplex enough that the oligo falls off at the
+annealing temperature, and the first model cannot see that (Still open, #37).
+**Fix:** new `second_model_annealing_temp.py`. It runs `run_model`, then for
+every site builds the duplex (oligo 5'->3' over the template base it really
+faces) and sums nearest-neighbor dH/dS (`duplex_energy`):
+- matched stacks from `santalucia_1998_nn.tsv`, plus initiation at each end
+  pair and the symmetry term for palindromes
+- salt correction as in Primer3:
+  `Na_eq = mono + 120*sqrt(Mg - dNTP)` (von Ahsen 2001), then
+  `dS += 0.368*(N-1)*ln(Na_eq)`
+- `Tm = 1000*dH / (dS + R*ln(C/4)) - 273.15`
+
+Checked against `primer3_reference_tm.tsv`: all 11 CDC oligos match to
+0.01 C (Case T5). Conditions and `ANNEALING_TEMP_C` = 55 C (CDC: 95 C 3 s,
+55 C 30 s, 45 cycles) are a USER SETTINGS box.
+
+**#44. Problem:** the parameter table had only the 10 matched stacks, so a
+variant's real site (with its mismatch) could not be scored.
+**Fix:** added two tables to `data/thermodynamics/`, with citations in their
+headers:
+- `allawi_santalucia_internal_mismatch_nn.tsv`: 51 stacks; Allawi &
+  SantaLucia 1997-98, Peyret 1999
+- `santalucia_peyret_terminal_mismatch_nn.tsv`: 48 stacks; SantaLucia &
+  Peyret 2001
+
+Both were copied from Biopython 1.88's `DNA_IMM1`/`DNA_TMM1`.
+
+A terminal mismatch takes its stack from the terminal table and moves the
+initiation term to the next pair in. Two mismatches side by side, indel
+sites, unknown genome bases and mismatches at a degenerate oligo letter are
+"not computed" with a reason, and the first model's status stands.
+
+Checked on 3000 random 18-30 base duplexes:
+- internal mismatches match Biopython `Tm_NN` to 0.004 C
+- terminal ones differ by up to 0.4 C, because Biopython puts the initiation
+  term on the mismatched base
+
+Primer3's `ntthal` agrees on perfect duplexes (0.06 C) and usually on single
+mismatches (SD 1.5 C), but gives 14-16 C drops for some single A-A/C-C
+mismatches, far beyond measured values. It is not used as a reference.
+
+**#45. Problem:** Tm alone does not say whether an oligo is still bound at
+the annealing temperature, and in PCR the oligo is in excess over the
+template.
+**Fix:** `fraction_bound` = K*C / (1 + K*C) with K = exp(-dG/RT) at the
+annealing temperature. It is 50% at 1000*dH / (dS + R*ln C), about 2 C above
+the Primer3 Tm. Each site reports Tm, dTm (vs a perfect match), margin
+(Tm - Ta) and fraction bound.
+
+The new `status_at_annealing` starts from the first model's status and can
+only make it worse:
+- **"weak binding"** if a primer site is bound less than
+  `MIN_FRACTION_BOUND` = 0.5
+- **"no signal"** if the primers hold but no probe site inside the product
+  does
+
+`STATUS_ORDER_AT_TA` = product > at risk > weak binding > not assessable >
+no signal > no product.
+
+Tests (`test_second_model_annealing_temp.py`):
+- T1-T4: hand sums; T3 is an internal A-G at -2.59 C
+- T4: a severe 3'-terminal G-A drops Tm by only 0.47 C. It is 3' risk HIGH
+  in the first model, so the two models answer different questions.
+- T4b: tandem mismatches are not computed
+- T4c: all 240 internal single mismatches lower Tm
+- T4d: fraction bound
+- T6: 68 C gives "weak binding"
+- T7: a probe with 2 mild mismatches falls from 69.1 to 60.1 C and gives
+  "no signal" at 64 C
+- T8: an indel site is not computed
+
+**Result** (`variant_check_temperature.py`): on Beta, Delta and Omicron every
+CDC oligo keeps its reference Tm except the Omicron N1 probe (C28311T, #37):
+71.2 -> 64.3 C (dTm -6.8 C). It is still ~9 C above 55 C and ~100% bound, so
+all three assays give "product" at 55 C.
+
+---
+
 ## Still open (known limits after version 4)
 - Near-miss and small-gap searches need an exact 6-base stretch (#15, #40).
 - Near-miss limits (#16, #17) were tuned on random sequence, not real genomes
@@ -440,37 +528,29 @@ rounds. These rules were confirmed against the code:
 - Severity still does not change "binds"; only a HIGH 3' risk changes the
   product status, to "at risk" (#41). Mild mismatches near the 3' end and
   severe ones elsewhere are warnings only.
-- Binding is yes/no: a mismatch that still binds (e.g. the Omicron N1 probe,
-  #37) may lower efficiency or probe signal and give a later Ct, which the
-  model cannot show yet.
+- Binding at the annealing temperature is an equilibrium estimate (#45), not
+  a predicted Ct or efficiency.
+- Tm is not computed for indel sites (no bulge-loop parameters) or two
+  mismatches side by side (no tandem-mismatch parameters) (#44).
+- Tm uses 250 nM for every oligo (the Primer3 reference); CDC uses 500 nM
+  primers and 125 nM probe (about 1 C difference).
+- Hairpins and primer dimers are not modelled.
 
 ## Planned (not built yet)
-- **Factor 2: melting temperature (Tm), nearest-neighbor model.** Sum the
-  SantaLucia (1998) stack values in `data/thermodynamics/santalucia_1998_nn.tsv`
-  (ΔH, ΔS, plus initiation and symmetry terms) and use
-  Tm = ΔH / (ΔS + R·ln(C/4)) − 273.15.
-  - **Salt correction:** the table is for 1 M NaCl, but
-    `primer3_reference_tm.tsv` used 50 mM monovalent, 3 mM Mg²⁺, 0.8 mM dNTP,
-    250 nM oligo. Add a monovalent + Mg²⁺ correction (dNTPs bind some Mg²⁺);
-    find out which correction Primer3 uses, then match its Tm values as the
-    first check.
-  - **Mismatch parameters:** the table has only the 10 matched stacks. Add the
-    Allawi & SantaLucia (1997–1998) mismatch stack values so Tm can be
-    computed on a variant's real site (G·T is mild, C·C or A·A much worse).
-  - **Compare with the annealing temperature** of the CDC protocol (about
-    55 °C; to be checked against the protocol) and report each oligo's Tm
-    drop per variant. First target: the N1 probe on Omicron (C28311T, #37).
-- **Fraction bound at the annealing temperature.** Tm is only the 50% point;
-  ΔG at the annealing temperature gives the fraction of oligo bound, a step
-  from yes/no binding toward lost efficiency and a predicted Ct shift.
-- **Probe-specific check (TaqMan).** The probe is cleaved by the polymerase
-  only if bound when it arrives; CDC probes sit about 10 °C above the primers
-  (N1 probe 71.2 °C vs 60.6 / 64.5 °C). A probe mismatch can leave
-  amplification intact but lower the signal, so the Ct comes later and the
-  amount looks lower (a possible false negative near the cycle-40 cutoff).
-  Report probe Tm margin separately from primer Tm.
-- **Primer suggestions on the website:** rank pairs by `STATUS_ORDER`, so a
-  pair whose product is "at risk" is flagged and suggested last (#41).
+Factor 2's basic plan (nearest-neighbor Tm, Primer3's salt correction,
+mismatch parameters, comparison with the 55 C annealing step, fraction
+bound) was built in Log 9 (#43-#45). Still to do for it:
+- **Indels and tandem mismatches:** add bulge-loop (SantaLucia & Hicks 2004)
+  and tandem-mismatch parameters so those sites get a Tm too.
+- **CDC concentrations:** 500 nM primers, 125 nM probe, and the master mix's
+  real Mg2+ (check the CDC instructions for use).
+- **Probe-specific check (TaqMan).** The probe is cleaved only if it is bound
+  when the polymerase arrives. CDC probes sit about 10 C above the primers. A
+  probe mismatch (e.g. Omicron N1, -6.8 C) can lower the signal and give a
+  later Ct without losing the product. Turn fraction bound into an expected
+  Ct shift.
+- **Primer suggestions on the website:** rank pairs by `STATUS_ORDER_AT_TA`,
+  with "at risk" and "weak binding" flagged and suggested last (#41, #45).
 - **Later factors:** hairpins and primer-dimers (Primer3 ΔG columns already in
   `primer3_reference_tm.tsv`), the RT step (reverse primer starts the cDNA;
   RNA secondary structure at the site), and the CDC run conditions (primer and
@@ -483,9 +563,9 @@ rounds. These rules were confirmed against the code:
   functionally constrained regions (CDC N1/N2/N3 in the N gene). The change
   is driven by selection, not GC content, and shows up over months as
   variants replace one another, not within a few replication cycles.
-  Plan: add a spike primer/probe set (e.g. a TaqPath-style S target) to
-  `data/primers/`, run it with `run_model` alongside N1/N2/N3 in
-  `variant_check.py`, and compare mismatch counts and `three_prime_risk` per
-  variant. A primer across Alpha's ΔH69/V70 (about 21765–21770) doubles as
-  the positive control (should fail on Alpha and Omicron BA.1, which also
-  carries the deletion).
+  Plan: add a spike primer/probe set to `data/primers/` (the Yale spike
+  Δ69-70 assay, Vogels et al. 2021, was found in Log 8), run it with both
+  models alongside N1/N2/N3, and compare mismatch counts, `three_prime_risk`
+  and dTm per variant. Its probe across Alpha's ΔH69/V70 doubles as the
+  positive control (should fail on Alpha and Omicron BA.1; needs a real
+  Alpha genome, #42).

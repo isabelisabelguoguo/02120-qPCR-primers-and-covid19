@@ -33,7 +33,7 @@
 # 1-based, the way the CDC table and genome browsers count.
 #
 # What it does NOT do yet (left for later models):
-#   - melting temperature / annealing temperature (nearest-neighbor model)
+#   - melting temperature / annealing temperature: see second_model_annealing_temp.py
 #   - primer dimers
 #
 # Files that go with this model (all in journal/):

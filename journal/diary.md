@@ -275,7 +275,7 @@ quickly. The CDC primers and probes are 18-24 letters.
 
 ## Log 8 · 2026-11-09 · 3' risk changes the result; a mislabelled genome
 
-**Commit:** filled in at the next update
+**Commit:** `e6793bf`
 
 ### What I did
 - Made a bad mismatch at a primer's 3' end count. Before, it was only a
@@ -312,9 +312,49 @@ quickly. The CDC primers and probes are 18-24 letters.
 
 ---
 
+## Log 9 · 2026-11-10 · Second model: annealing temperature
+
+**Commit:** filled in at the next update
+
+### What I did
+- Built my second model, `second_model_annealing_temp.py`. The first model
+  only says whether a primer fits within 2 mismatches. This one asks whether
+  the primer is actually stuck to its site at the PCR's annealing
+  temperature (55 C in the CDC protocol) **(#43)**.
+- It works out the melting temperature (Tm) by adding up the energy of each
+  pair of neighboring base pairs (the nearest-neighbor model), then corrects
+  for salt and magnesium. My Tm values match Primer3's for all 11 CDC
+  primers and probes to 0.01 C **(#43)**.
+- Added published tables for mismatched pairs, so a variant's real binding
+  site can be scored with its mismatch in place. Sites with an insertion or
+  deletion, or two mismatches side by side, are not scored yet **(#44)**.
+- From the Tm, the model works out what fraction of sites have a primer
+  bound at 55 C. A product whose primer is mostly unbound is
+  **"weak binding"**. If only the probe falls off, it is **"no signal"**
+  **(#45)**.
+- Learned that a bad mismatch at the very 3' end lowers Tm by less than
+  half a degree. The primer still sticks; it just can't be extended. That is
+  why the first model's "at risk" and this model's Tm are both needed
+  **(#45)**.
+- First result: the Omicron N1 probe mutation lowers its Tm by 6.8 C (71.2 to
+  64.3 C). That is still about 9 C above 55 C, so the probe should still
+  bind and all three CDC assays still give a product **(#45)**.
+
+### Things to work on for next time
+- Get a real Alpha genome and confirm the "Beta" file with Nextclade (#42).
+- Save the Yale spike Δ69-70 primers in `data/primers/` and run them through
+  both models.
+- Use the CDC's real concentrations (500 nM primers, 125 nM probe) and Mg2+.
+- Add bulge-loop and tandem-mismatch parameters so indel sites get a Tm.
+- Turn the probe's weaker binding into an expected Ct delay.
+- Point git at the repo's new address
+  (`02120-qPCR-primers-and-covid19`).
+
+---
+
 ## Where things stand
-Still open after version 4 (details at the end of
-`modification documentation.md`): a few search limits, and binding is
-still yes/no. The first variant run (Log 6) used only one genome per variant.
-Next: melting temperature (factor 2); the plan is under "Planned" at the end
-of `modification documentation.md`.
+Still open (details at the end of `modification documentation.md`): a few
+search limits, one genome per variant, and no real Alpha genome yet (#42).
+Factor 2 (annealing temperature) has a first version (Log 9). Next: Tm for
+indel sites, the CDC's real concentrations, and turning the probe's weaker
+binding into an expected Ct delay.
