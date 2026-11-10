@@ -2,8 +2,13 @@
 # VARIANT CHECK: FIRST MODEL: FACTOR: SPECIFICITY (quick first pass)
 # =============================================================================
 # The project's actual question: do the CDC N1, N2 and N3 assays still match
-# the Alpha, Delta and Omicron genomes? Each assay is run on the reference and
-# on every genome in data/variants/, and one summary table is printed.
+# later variant genomes? Each assay is run on the reference and on every genome
+# in data/variants/ (now Beta, Delta and Omicron), and one summary table is
+# printed.
+#
+# FLAG: the genome first saved as "Alpha" (MZ068155) is really Beta (B.1.351):
+# it has Beta's spike mutations and none of Alpha's. It was renamed to
+# Beta_B.1.351_MZ068155.fasta; there is no real Alpha genome yet (see #42).
 #
 # For each oligo the table shows its fewest mismatches at any site (0 = perfect
 # match, "-" = no site within the allowance), plus the assay outcome, product
@@ -26,7 +31,7 @@ from first_model_factor_specificity import read_fasta, run_model
 # SECTION 1: GENOMES
 # -----------------------------------------------------------------------------
 # The reference first, then each variant named by the start of its file name
-# (e.g. "Alpha_B.1.1.7_MZ068155.fasta" -> "Alpha").
+# (e.g. "Beta_B.1.351_MZ068155.fasta" -> "Beta").
 # =============================================================================
 
 def load_genomes():
@@ -51,7 +56,7 @@ def fewest_mismatches(result, oligo):
 def summarize(assay, oligos, label, genome):
     result = run_model(oligos["forward"]["sequence_5to3"], oligos["reverse"]["sequence_5to3"],
                        genome, probe=oligos["probe"]["sequence_5to3"], max_mismatches=MAX_MISMATCHES)
-    products = [p for p in result["products"] if p["status"] == "product"]
+    products = [p for p in result["products"] if p["status"] in ("product", "at risk")]
     return {
         "assay": assay,
         "genome": label,

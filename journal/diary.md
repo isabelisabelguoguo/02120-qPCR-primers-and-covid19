@@ -184,7 +184,8 @@ answer could be worked out by hand first (7 test cases).
 ### What I did
 - Wrote a quick script, `variant_check.py`, that runs the CDC N1, N2 and N3
   assays on the reference and on the Alpha, Delta and Omicron genomes and
-  prints one table **(#33)**.
+  prints one table **(#33)**. ⚠ Later found that my "Alpha" genome is really
+  Beta, so the Alpha results here are Beta results **(#42)**.
 - First answer: all three assays still give a product on all three variants,
   at the same sizes as on the reference. The only change is one mismatch in
   the N1 probe on Omicron, and no primer has a mismatch near its 3' end
@@ -245,7 +246,7 @@ answer could be worked out by hand first (7 test cases).
 
 ## Log 7 · 2026-11-09 · Realistic test primers and k = 6
 
-**Commit:** filled in at the next update
+**Commit:** `0e0e449`
 
 **Note:** most primers used in real life are 18-30 letters (bases) long:
 long enough to stick to only one place in a genome, short enough to stick
@@ -269,6 +270,45 @@ quickly. The CDC primers and probes are 18-24 letters.
 - The cost: when a primer fails, the "where did it almost stick" search can
   now miss a site whose mismatches leave no 6-letter stretch intact. A new
   test shows a case that k = 5 finds and k = 6 misses **(#40)**.
+
+---
+
+## Log 8 · 2026-11-09 · 3' risk changes the result; a mislabelled genome
+
+**Commit:** filled in at the next update
+
+### What I did
+- Made a bad mismatch at a primer's 3' end count. Before, it was only a
+  warning and the product still looked fine. Now such a product is
+  **"at risk"**: it may still copy, but worse. A clean product always ranks
+  above an at-risk one, and later, on my website, primer pairs that are at
+  risk will be flagged and suggested last **(#41)**.
+- Looked for a published primer set on the spike gene and found the Yale
+  spike 69-70 assay (Vogels et al. 2021). Its probe sits right across Alpha's
+  6-letter deletion, so it should fail on Alpha.
+- It did not fail on my "Alpha" genome. Checking the spike mutations showed
+  why: the file has all of Beta's mutations and none of Alpha's. The wrong
+  genome had been saved as Alpha. I renamed it to Beta and flagged the old
+  Alpha results as Beta results **(#42)**.
+- Omicron BA.1 does have the 69-70 deletion: the spike primers still copy
+  the DNA there, but the probe cannot bind, so the test gives no signal.
+- Took a quiz on the whole program (15 questions, then review rounds), saved
+  in the session log. What I had to fix in my head:
+  - **Severity** is the kind of one wrong pair (A/A, G/A, A/G, C/C are
+    severe), not how many mismatches there are.
+  - **3' risk** looks only at the last 3 letters. "At risk" needs a mismatch
+    that is both severe *and* within 3 of the 3' end. A mild one there is
+    only "low", and a severe one further in is ignored by 3' risk.
+  - The order of checks is **count → window → severity**. "Mismatched"
+    (too many changes, so no product) and "at risk" (the product forms) can
+    never both happen.
+  - A 1-letter deletion is allowed only in the 5' half of a primer. It has no
+    severity and never makes a product "at risk".
+  - **"No signal"** means the DNA is still copied, but the probe cannot bind,
+    so nothing lights up.
+  - The "Alpha" mix-up mattered because the results were right but had the
+    wrong name. Checking the file showed Beta's mutations, not just a missing
+    Alpha deletion **(#41, #42)**.
 
 ---
 

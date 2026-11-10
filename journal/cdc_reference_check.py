@@ -79,7 +79,7 @@ def check_viral_assay(name, oligos, genome):
                        genome, probe=oligos["probe"]["sequence_5to3"], max_mismatches=MAX_MISMATCHES)
     print_report(f"{name} on the reference genome", result)
 
-    products = [p for p in result["products"] if p["status"] == "product"]
+    products = [p for p in result["products"] if p["status"] in ("product", "at risk")]
     published = int(oligos["forward"]["pub_amplicon_bp"])
     first = int(oligos["forward"]["verified_start_NC045512.2"])
     last = int(oligos["reverse"]["verified_start_NC045512.2"])   # reverse primer's 5' end

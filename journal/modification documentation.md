@@ -278,6 +278,8 @@ assay outcome, product size and 3' risk. Result: every assay gives a product
 on Alpha, Delta and Omicron (N1 72, N2 67, N3 72 bp, as on the reference);
 the only mismatch is 1 in the N1 probe on Omicron; no 3' risk.
 Limit: one isolate per variant.
+**⚠ Flag (#42):** the genome labelled "Alpha" here is really Beta (B.1.351),
+so the "Alpha" row of these results is a Beta result.
 
 **#34. Problem:** the genome files had mangled names
 (`data:reference:NC_045512.2.fasta.`, `OmicronBA.1_OL672836.1.`) and the
@@ -286,6 +288,8 @@ variants had no `.fasta` extension.
 `Alpha_B.1.1.7_MZ068155.fasta`, `Delta_B.1.617.2_MZ555945.fasta` and
 `Omicron_BA.1_OL672836.1.fasta`. `cdc_reference_check.py` finds the reference
 with a glob, so it needed no change (same results).
+**⚠ Flag (#42):** `Alpha_B.1.1.7_MZ068155.fasta` was mislabelled; it is a
+Beta genome and is now `Beta_B.1.351_MZ068155.fasta`.
 
 **#35. Problem:** `.DS_Store` files (3 committed) kept showing as modified,
 even though `.gitignore` lists `.DS_Store` (it only stops new files), and
@@ -318,7 +322,7 @@ uses the mismatch count alone, so a severe 3' mismatch still gives
 
 ## Log 7 · 2026-11-09 · Realistic test primers and k = 6
 
-**Commit:** filled in at the next update
+**Commit:** `0e0e449`
 
 **Note:** most primers used in real (biological) PCR and qPCR are 18-30
 bases long: long enough to be unique in a genome and to anneal at about
@@ -373,6 +377,54 @@ is found (3 events, 3, 9 and 15 from the 3' end).
 
 ---
 
+## Log 8 · 2026-11-09 · 3' risk changes the result; a mislabelled genome
+
+**Commit:** filled in at the next update
+
+**#41. Problem:** a severe mismatch at a primer's 3' end only printed a
+warning; the product still counted as a plain "product" (#37), so a pair
+likely to amplify poorly looked as good as a perfect one.
+**Fix:** new product status **"at risk"**: both primers bind (and the probe,
+if given), but a primer site has `three_prime_risk` "high" (a severe mismatch
+within `THREE_PRIME_WINDOW` = 3 bases of the 3' end). `product_status`
+returns it after the "no signal" and "not assessable" checks. The new
+`STATUS_ORDER` = product > at risk > not assessable > no signal > no product
+is used by `assay_outcome` and is meant to rank primer pairs on the future
+website (at-risk pairs flagged and suggested last). LOW and POSSIBLE risk do
+not change the status. The probe's 3' risk is ignored: a TaqMan probe is
+never extended. Warnings now cover "at risk" products too;
+`cdc_reference_check.py` and `variant_check.py` count "at risk" products as
+products. Case 3b now expects "at risk"; new Case 3d (two copies, one with
+the severe 3' mismatch) gives two "at risk" products and one "product", and
+the assay is "product". Cases 21a/21b check that LOW and POSSIBLE stay
+"product". The CDC and variant results do not change (no HIGH 3' risk).
+
+**#42. Problem:** `Alpha_B.1.1.7_MZ068155.fasta` is not Alpha. At the spike
+signature positions it carries all of Beta's (B.1.351) changes (D80A
+A21801C, D215G, K417N, E484K, N501Y, Δ242-244) and none of Alpha's (ΔH69/V70,
+ΔY144, A570D, P681H, T716I). The NCBI record (MZ068155.1,
+SARS-CoV-2/human/PHL/COVID53909/2021) names no lineage; the label came from
+the file name. Found while testing a spike Δ69-70 assay, which should fail on
+Alpha but gave a product on this genome.
+**Fix:** renamed with `git mv` to `Beta_B.1.351_MZ068155.fasta`
+(`variant_check.py` now labels it "Beta"; its header comment flags the
+change). Every "Alpha" result in Log 6 (#33) is a Beta result; flagged there.
+Still to do: confirm the lineage with Nextclade, and add a real Alpha genome
+for the Δ69-70 positive control.
+
+**Note (no code change):** the session log for this commit
+(`af9073fb-….jsonl`) includes a 15-question quiz on the model plus review
+rounds. These rules were confirmed against the code:
+- 3' risk uses `from_3prime <= THREE_PRIME_WINDOW`, so 1–3 bases from the
+  3' end are inside the window.
+- "At risk" needs both a severe pair and a position inside the window.
+- Status is decided in the order mismatch count, then window, then severity.
+- The 1-base indel rule (`from_3prime[0] > length // 2`) is separate from
+  3' risk.
+- "No signal" means the product is made, but the probe is mismatched.
+
+---
+
 ## Still open (known limits after version 4)
 - Near-miss and small-gap searches need an exact 6-base stretch (#15, #40).
 - Near-miss limits (#16, #17) were tuned on random sequence, not real genomes
@@ -384,8 +436,10 @@ is found (3 events, 3, 9 and 15 from the 3' end).
 - The k-mer index is rebuilt on every run; the test suite takes ~10 s.
 - The mismatch allowance can only be changed in the code.
 - Variants checked with one isolate each (#33).
-- Severity and 3' risk do not change the outcome; only the mismatch count
-  decides "binds" (#37).
+- No real Alpha (B.1.1.7) genome: the file saved as Alpha was Beta (#42).
+- Severity still does not change "binds"; only a HIGH 3' risk changes the
+  product status, to "at risk" (#41). Mild mismatches near the 3' end and
+  severe ones elsewhere are warnings only.
 - Binding is yes/no: a mismatch that still binds (e.g. the Omicron N1 probe,
   #37) may lower efficiency or probe signal and give a later Ct, which the
   model cannot show yet.
@@ -415,8 +469,8 @@ is found (3 events, 3, 9 and 15 from the 3' end).
   amplification intact but lower the signal, so the Ct comes later and the
   amount looks lower (a possible false negative near the cycle-40 cutoff).
   Report probe Tm margin separately from primer Tm.
-- **Let 3' risk affect the outcome** (optional): e.g. a HIGH 3' risk marks the
-  product "at risk" instead of a plain "product" (#37).
+- **Primer suggestions on the website:** rank pairs by `STATUS_ORDER`, so a
+  pair whose product is "at risk" is flagged and suggested last (#41).
 - **Later factors:** hairpins and primer-dimers (Primer3 ΔG columns already in
   `primer3_reference_tm.tsv`), the RT step (reverse primer starts the cDNA;
   RNA secondary structure at the site), and the CDC run conditions (primer and

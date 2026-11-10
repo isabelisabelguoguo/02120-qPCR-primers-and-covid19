@@ -15,6 +15,7 @@
 #     base change (primer base vs genome base) and how severe that kind of
 #     mismatch is (severe or mild)
 #   - grades mismatches close to the 3' end as "3' risk: high / low / possible"
+#     and marks a product "at risk" when a primer's 3' risk is high
 #   - accepts degenerate bases in primers (Y = C or T, R = A or G, N = any, ...)
 #     and reads ambiguity codes in the genome (genome Y = C or T)
 #   - lets a site with a 1-base insertion/deletion in the primer's 5' half
@@ -281,7 +282,8 @@ def mismatch_severity(primer_base, genome_base):
 # ***     high     - a severe mismatch in the window                        ***
 # ***     low      - only mild mismatches in the window                     ***
 # ***     possible - no mismatch, but an unknown base in the window         ***
-# ***   The site still counts as binding; the grade is a warning.           ***
+# ***   The site still counts as binding; a HIGH grade turns its product    ***
+# ***   "at risk" (ranked below a clean "product").                         ***
 # ***                                                                       ***
 # *****************************************************************************
 # *****************************************************************************
@@ -659,13 +661,22 @@ def pair_into_products(sites, min_length, max_length):
 #
 # Per product (status):
 #   product        - both primer sites bind (and the probe binds, if given)
+#   at risk        - as "product", but a primer has a SEVERE mismatch within
+#                    THREE_PRIME_WINDOW bases of its 3' end (3' risk HIGH):
+#                    it binds, but extension may fail or be delayed (later Ct)
 #   no signal      - both primers bind but the probe does not: DNA is copied,
 #                    yet a qPCR machine would see no fluorescence
 #   not assessable - missing data decides it
+# Only the primers' 3' risk counts: a TaqMan probe is never extended, so a
+# mismatch at its 3' end does not block anything.
 #
-# Per assay, the best product status wins, in this order:
-#   product > not assessable > no signal > no product (nothing could form)
+# Per assay, the best product status wins, in the order of STATUS_ORDER:
+#   product > at risk > not assessable > no signal > no product (nothing could form)
+# The same order can rank primer pairs for a user: "at risk" pairs go below
+# every pair that gives a clean product.
 # =============================================================================
+
+STATUS_ORDER = ["product", "at risk", "not assessable", "no signal", "no product"]   # best to worst
 
 def oligo_outcome(name, sites):
     """Return 'binds', 'not assessable' or 'mismatched' for one primer or probe."""
@@ -685,7 +696,7 @@ def probe_inside(product, sites):
 
 
 def product_status(product, probe_given):
-    """Return 'product', 'no signal' or 'not assessable' for one possible product."""
+    """Return 'product', 'at risk', 'no signal' or 'not assessable' for one possible product."""
     if probe_given and product["probe"] == "mismatched":
         return "no signal"
     parts = [product["left"]["outcome"], product["right"]["outcome"]]
@@ -693,13 +704,15 @@ def product_status(product, probe_given):
         parts.append(product["probe"])
     if "not assessable" in parts:
         return "not assessable"
+    if product["three_prime_risk"] == "high":
+        return "at risk"
     return "product"
 
 
 def assay_outcome(products):
     """Return the assay's overall outcome from its products' statuses."""
     statuses = {p["status"] for p in products}
-    for status in ("product", "not assessable", "no signal"):
+    for status in STATUS_ORDER:
         if status in statuses:
             return status
     return "no product"
@@ -756,7 +769,7 @@ def run_model(forward, reverse, target, probe=None, max_mismatches=2, k=6,
     # -- 8d: warnings worth reading even when a product forms
     warnings = [f"3' risk {p['three_prime_risk']}: {p['left']['primer']} x {p['right']['primer']} "
                 f"product at {p['start'] + 1}-{p['end']}"
-                for p in products if p["status"] == "product" and p["three_prime_risk"]]
+                for p in products if p["status"] in ("product", "at risk") and p["three_prime_risk"]]
 
     return {
         "sites": sites,

@@ -163,7 +163,9 @@ def case_mismatches():
 
     result = run_model(FORWARD_A, REVERSE_A, target, max_mismatches=1)
     print_report("Case 3b: mismatches, tolerance 1", result)
-    check(product_lengths(result) == [70], "one product when 1 mismatch is allowed")
+    check([(p["length"], p["status"]) for p in result["products"]] == [(70, "at risk")],
+          "one 70 bp product when 1 mismatch is allowed, status 'at risk' (severe 3' mismatch)")
+    check(result["assay"] == "at risk", "assay is 'at risk', not 'product'")
     check(result["products"][0]["left"]["mismatch_from_3prime"] == [1],
           "forward mismatch reported at the 3'-terminal base")
     check(result["products"][0]["right"]["mismatch_from_3prime"] == [1],
@@ -172,6 +174,24 @@ def case_mismatches():
     check(result["products"][0]["right"]["three_prime_risk"] == "low", "reverse site: 3' risk LOW (mild A-C)")
     check(result["products"][0]["three_prime_risk"] == "high", "product takes the worse grade: HIGH")
     check(len(result["warnings"]) == 1, "one 3' risk warning is printed")
+
+
+# -- Case 3d: an "at risk" product ranks below a clean one -------------------
+# Case 4 layout (two amplicon copies, 30 filler between), but copy 1's forward
+# site has the severe 3'-terminal mismatch of Case 3 (amplicon offset 19 C -> G).
+# Tolerance 1. Copy 1 at 10..80, copy 2 at 110..180:
+#   copy1 F x copy1 R:  70 bp, forward 3' risk HIGH -> at risk
+#   copy1 F x copy2 R: 170 bp, same forward site    -> at risk
+#   copy2 F x copy2 R:  70 bp, both sites perfect   -> product
+# The assay takes the best status: product > at risk > ..., so "product".
+def case_at_risk_ranking():
+    target = filler(10) + mutate(amplicon(), 19, "G") + filler(30) + amplicon() + filler(10)
+    result = run_model(FORWARD_A, REVERSE_A, target, max_mismatches=1)
+    print_report("Case 3d: one at-risk copy, one clean copy", result)
+    check([(p["start"], p["length"], p["status"]) for p in result["products"]] ==
+          [(10, 70, "at risk"), (10, 170, "at risk"), (110, 70, "product")],
+          "copy 1 products are 'at risk', copy 2 product is clean")
+    check(result["assay"] == "product", "assay is 'product': a clean product outranks 'at risk'")
 
 
 # -- Case 3c: mismatch far from the 3' end -----------------------------------
@@ -567,12 +587,14 @@ def case_graded_risk():
     result = run_model(FORWARD_A, REVERSE_A, target, max_mismatches=1)
     print_report("Case 21a: one mild mismatch at the 3' end", result)
     check(result["products"][0]["three_prime_risk"] == "low", "product 3' risk is LOW")
+    check(result["assay"] == "product", "a LOW 3' risk does not make it 'at risk'")
 
     target = filler(10) + mutate(amplicon(), 19, "N") + filler(10)
     result = run_model(FORWARD_A, REVERSE_A, target, max_mismatches=1)
     print_report("Case 21b: N at the forward primer's 3' end", result)
     check(site_of(result, "forward")["outcome"] == "binds", "forward binds even if the N is a mismatch")
     check(result["products"][0]["three_prime_risk"] == "possible", "product 3' risk is POSSIBLE")
+    check(result["assay"] == "product", "a POSSIBLE 3' risk does not make it 'at risk'")
 
 
 # -- Case 22: 1-base deletion in the primer's 5' half ------------------------
@@ -695,6 +717,7 @@ if __name__ == "__main__":
     case_reverse_strand()
     case_mismatches()
     case_mismatch_5prime()
+    case_at_risk_ranking()
     case_multiple_products()
     case_facing_away()
     case_no_site()

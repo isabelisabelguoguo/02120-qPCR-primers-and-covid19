@@ -30,7 +30,8 @@ Fake pieces, set B (cases about primer length):
 
 Outcomes:
   Primer/probe: binds / mismatched / not assessable
-  Assay:        product / not assessable / no signal / no product
+  Assay:        product / at risk / not assessable / no signal / no product
+                (best to worst; the assay takes the best status of its products)
   Positions are 1-based (first base of the target = 1).
   ^ marks a planted mismatch, N or extra base in the target.
   Base changes read "primer C, genome G": the primer has C where a
@@ -38,6 +39,8 @@ Outcomes:
   Severity: severe (primer-template A-A, G-A, A-G, C-C) or mild (all others).
   3' risk: high (severe mismatch within 3 bases of the 3' end), low (mild
   only), possible (unknown base there), or none.
+  At risk: a product whose primer has 3' risk HIGH. It may still amplify,
+  but extension can fail or be delayed, so it ranks below a clean product.
 
 
 CORE CASES (version 1)
@@ -81,12 +84,14 @@ Case 3a - Mismatches at the 3' end, none allowed
 Case 3b - Same target, 1 mismatch allowed
   Mismatches allowed: 1
   Target:   (same as 3a)
-  Outcome:  forward binds, reverse binds -> product, 70 bp
+  Outcome:  forward binds, reverse binds -> at risk, 70 bp
             forward site 3' risk HIGH (C opposite template C: severe)
             reverse site 3' risk LOW  (A opposite template C: mild)
-            product takes the worse grade: HIGH; WARNING printed
+            product takes the worse grade: HIGH -> status "at risk";
+            WARNING printed
   Meaning:  The user-set allowance works, and 3'-end mismatches are graded
-            by how much that kind of mismatch actually hurts PCR.
+            by how much that kind of mismatch actually hurts PCR. A severe
+            one makes the product "at risk" instead of a plain "product".
 
 Case 3c - Mismatch at the 5' end
   Mismatches allowed: 1
@@ -96,6 +101,19 @@ Case 3c - Mismatch at the 5' end
             binds -> product, 70 bp, no 3' risk
   Meaning:  Position counting runs the right direction, and a harmless 5'
             mismatch does not raise a warning.
+
+Case 3d - An "at risk" product ranks below a clean one
+  Mismatches allowed: 1
+  Target:   AAAAAAAAAAACGGTCTAGCATTGCAGTCGCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACGGTCTAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+                                         ^
+            (two amplicon copies; only copy 1 has the Case 3 severe 3' mismatch)
+  Outcome:  copy 1 F x copy 1 R:  70 bp (11-80)   at risk
+            copy 1 F x copy 2 R: 170 bp (11-180)  at risk
+            copy 2 F x copy 2 R:  70 bp (111-180) product
+            -> assay product
+  Meaning:  The assay takes the best status. The same order (product >
+            at risk > ...) will rank primer pairs for a user: an at-risk pair
+            is suggested last.
 
 Case 4 - Multiple products
   Mismatches allowed: 0
@@ -333,6 +351,7 @@ Case 21a - Mild mismatch at the 3' end
   Target:   AAAAAAAAAAACGGTCTAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGCGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
                                                                     ^
   Outcome:  product, 70 bp, 3' risk LOW (reverse primer A opposite template C)
+            (status stays "product": only HIGH makes it "at risk")
   Meaning:  A-C mismatches are usually extended through; the warning is graded
             low instead of treated like a severe one.
 
@@ -341,7 +360,7 @@ Case 21b - Unknown base at the 3' end
   Target:   AAAAAAAAAAACGGTCTAGCATTGCAGTCNCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
                                          ^
   Outcome:  forward binds (fits the allowance even if N is a mismatch),
-            product, 70 bp, 3' risk POSSIBLE
+            product, 70 bp, 3' risk POSSIBLE (status stays "product")
   Meaning:  The site binds whatever N is, but the last base is unknown, so a
             3' problem cannot be ruled out.
 
