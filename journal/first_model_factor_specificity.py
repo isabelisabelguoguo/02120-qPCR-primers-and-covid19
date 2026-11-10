@@ -154,6 +154,12 @@ def expand_degenerate(seq):
 # where every length-k word (k-mer) occurs. Looking up a primer's k-mers then
 # tells us the only places worth checking. A degenerate k-mer is looked up as
 # every plain k-mer it stands for.
+#
+# k = 6 (the default in run_model). There are 4^6 = 4,096 possible 6-mers,
+# so in a 30,000-base genome a random seed hits about 7 places (k = 5: about
+# 29), leaving fewer wrong candidates to check. The price: every primer must
+# be at least k x (max_mismatches + 1) bases long, 18 bases with the default
+# 2 mismatches, which is the short end of real qPCR primers (18-30 bases).
 # =============================================================================
 
 def build_kmer_index(target, k):
@@ -420,13 +426,15 @@ def find_binding_sites(primer_name, primer, target, index, k, max_mismatches):
 #     (a deletion leaves fewer bases to compare, which makes chance matches
 #     easy: on a random 30,000-base sequence a 20-base primer found a fake
 #     "6-base deletion + 1 mismatch" before this rule was added)
-# So a 16-base primer can show deletions of up to 2 bases, while the 20-24
-# base CDC primers can show a 6-base deletion like Alpha's 69-70 deletion.
+# So an 18-base primer can show deletions of up to 4 bases, while 20-30 base
+# primers (like the CDC ones) can show a 6-base deletion like Alpha's 69-70
+# deletion.
 #
-# Limit: the search starts from exact k-base (5-base) stretches the primer
+# Limit: the search starts from exact k-base (6-base) stretches the primer
 # shares with the genome. If the differences cut the primer into pieces all
-# shorter than 5 bases, the near-miss is not found ("none close"). A 16-base
-# primer is always found with up to 2 events, a 20-base primer with up to 3.
+# shorter than 6 bases, the near-miss is not found ("none close"). An 18- or
+# 20-base primer is always found with up to 2 events, a 24-base primer with
+# up to 3, a 30-base primer with up to 4.
 # =============================================================================
 
 MAX_INDEL = 6
@@ -542,7 +550,7 @@ def find_near_miss(primer_name, primer, target, index, k):
 #
 # Only fully sequenced placements are used, and a gapped site is skipped where
 # the same primer already has an ungapped site on that strand.
-# Limit: like the near-miss search, this starts from exact 5-base stretches.
+# Limit: like the near-miss search, this starts from exact 6-base stretches.
 # =============================================================================
 
 MAX_BINDING_INDEL = 1
@@ -712,12 +720,12 @@ def assay_outcome(products):
 # ***   max_mismatches = how many mismatches a primer may have at a site    ***
 # ***                    and still count as binding (default: 2)            ***
 # ***                                                                       ***
-# ***   Limit: (primer length) // (max_mismatches + 1) must be >= k (5),    ***
-# ***          e.g. a 16-base primer allows at most 2 mismatches.           ***
+# ***   Limit: (primer length) // (max_mismatches + 1) must be >= k (6),    ***
+# ***          e.g. an 18-base primer allows at most 2 mismatches.          ***
 # ***                                                                       ***
 # *****************************************************************************
 # *****************************************************************************
-def run_model(forward, reverse, target, probe=None, max_mismatches=2, k=5,
+def run_model(forward, reverse, target, probe=None, max_mismatches=2, k=6,
               min_length=20, max_length=1000):
     """Predict every product the primer pair could amplify from target, and explain it."""
     target = target.upper()

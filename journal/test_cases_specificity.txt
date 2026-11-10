@@ -5,16 +5,28 @@ Tests: journal/test_first_model_factor_specificity.py
 Run:   python3 journal/test_first_model_factor_specificity.py
 Real-data check: python3 journal/cdc_reference_check.py  (see the end of this file)
 
-All cases use fake 16-base primers and a fake target built by hand,
-so every expected answer is worked out on paper before running.
+All cases use fake primers and probes of 18-30 bases (the range of real
+qPCR oligos; the CDC ones are 18-24) and a fake target built by hand, so
+every expected answer is worked out on paper before running.
 
-Fake pieces:
-  Forward primer   GTTCAGAGCTACTGAC
-  Reverse primer   TCCGATAGTCAGCTTG
-  Reverse site     CAAGCTGACTATCGGA   (reverse primer as it appears on the + strand)
-  Insert / probe   CGTACGTTGCATGCCTAGGT
-  Filler           AAAA...            (poly-A, no primer can bind it)
-  Amplicon         forward + insert + reverse site = 16 + 20 + 16 = 52 bp
+Fake pieces, set A (used by most cases):
+  Forward primer   ACGGTCTAGCATTGCAGTCC              (20 bases)
+  Reverse primer   TCCGATAGTCAGCTTGGACAGTCA          (24 bases)
+  Reverse site     TGACTGTCCAAGCTGACTATCGGA          (reverse primer as it appears on the + strand)
+  Insert / probe   CGTACGTTGCATGCCTAGGTGATCAG        (26 bases)
+  Amplicon         forward + insert + reverse site = 20 + 26 + 24 = 70 bp
+                   (amplicon offsets: forward 0-19, insert 20-45, reverse 46-69)
+
+Fake pieces, set B (cases about primer length):
+  Forward primer   CAGTGCTTACGGATCGAG                (18 bases)
+  Reverse primer   GTCATCGACTGTAGCTTCGAGACGTTAGCC    (30 bases)
+  Reverse site     GGCTAACGTCTCGAAGCTACAGTCGATGAC
+  Insert           TGACCGTATCAGGTCATGCAGTCCA         (25 bases)
+  Amplicon         18 + 25 + 30 = 73 bp
+                   (amplicon offsets: forward 0-17, insert 18-42, reverse 43-72)
+
+  Filler           AAAA...            (poly-A; no primer contains AAAAA or
+                                       TTTTT, so none can bind it)
 
 Outcomes:
   Primer/probe: binds / mismatched / not assessable
@@ -31,68 +43,77 @@ Outcomes:
 CORE CASES (version 1)
 ----------------------
 
-Case 1 - Exact match
+Case 1a - Exact match
   Mismatches allowed: 0
-  Target:   AAAAAAAAAAGTTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
-  Outcome:  forward binds, reverse binds -> product, 52 bp (positions 11-62)
+  Target:   AAAAAAAAAAACGGTCTAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+  Outcome:  forward binds (11-30), reverse binds (57-80)
+            -> product, 70 bp (positions 11-80)
   Meaning:  Baseline: perfect primers give exactly one product of the right
             size. If this fails, nothing else can be trusted.
 
+Case 1b - Exact match, set B (18- and 30-base primers)
+  Mismatches allowed: 0
+  Target:   AAAAAAAAAACAGTGCTTACGGATCGAGTGACCGTATCAGGTCATGCAGTCCAGGCTAACGTCTCGAAGCTACAGTCGATGACAAAAAAAAAA
+  Outcome:  forward binds (11-28), reverse binds (54-83)
+            -> product, 73 bp (positions 11-83)
+  Meaning:  The model is not tied to one primer length: the shortest and
+            longest lengths in the 18-30 range work too.
+
 Case 2 - Reverse strand
   Mismatches allowed: 0
-  Target:   TTTTTTTTTTTCCGATAGTCAGCTTGACCTAGGCATGCAACGTACGGTCAGTAGCTCTGAACTTTTTTTTTT
-            (Case 1 target, reverse-complemented)
-  Outcome:  forward binds, reverse binds -> product, 52 bp
+  Target:   TTTTTTTTTTTCCGATAGTCAGCTTGGACAGTCACTGATCACCTAGGCATGCAACGTACGGGACTGCAATGCTAGACCGTTTTTTTTTTT
+            (Case 1a target, reverse-complemented)
+  Outcome:  forward binds, reverse binds -> product, 70 bp
             (the reverse primer is now the "+" site, forward the "-" site)
   Meaning:  Primers can bind either DNA strand; a model checking only one
             strand would miss real products.
 
 Case 3a - Mismatches at the 3' end, none allowed
   Mismatches allowed: 0
-  Target:   AAAAAAAAAAGTTCAGAGCTACTGAGCGTACGTTGCATGCCTAGGTTAAGCTGACTATCGGAAAAAAAAAAA
-                                     ^                    ^
+  Target:   AAAAAAAAAAACGGTCTAGCATTGCAGTCGCGTACGTTGCATGCCTAGGTGATCAGCGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+                                         ^                          ^
   Outcome:  forward mismatched, reverse mismatched -> no product
             near-misses: forward 1 from 3': primer C, genome G (severe)
-                         reverse 1 from 3': primer G, genome A (mild)
+                         reverse 1 from 3': primer A, genome G (mild)
   Meaning:  With zero tolerance, one mismatch per primer loses the product,
             and the near-miss says exactly which base change caused it.
 
 Case 3b - Same target, 1 mismatch allowed
   Mismatches allowed: 1
   Target:   (same as 3a)
-  Outcome:  forward binds, reverse binds -> product, 52 bp
+  Outcome:  forward binds, reverse binds -> product, 70 bp
             forward site 3' risk HIGH (C opposite template C: severe)
-            reverse site 3' risk LOW  (G opposite template T: mild)
+            reverse site 3' risk LOW  (A opposite template C: mild)
             product takes the worse grade: HIGH; WARNING printed
   Meaning:  The user-set allowance works, and 3'-end mismatches are graded
             by how much that kind of mismatch actually hurts PCR.
 
 Case 3c - Mismatch at the 5' end
   Mismatches allowed: 1
-  Target:   AAAAAAAAAACTTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
+  Target:   AAAAAAAAAAGCGGTCTAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
                       ^
-  Outcome:  forward binds (16 from 3': primer G, genome C, mild), reverse
-            binds -> product, 52 bp, no 3' risk
+  Outcome:  forward binds (20 from 3': primer A, genome G, mild), reverse
+            binds -> product, 70 bp, no 3' risk
   Meaning:  Position counting runs the right direction, and a harmless 5'
             mismatch does not raise a warning.
 
 Case 4 - Multiple products
   Mismatches allowed: 0
-  Target:   AAAAAAAAAAGTTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGTTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
-            (two copies of the amplicon)
-  Outcome:  forward binds, reverse binds -> 3 products: 52, 52 and 134 bp
+  Target:   AAAAAAAAAAACGGTCTAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACGGTCTAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+            (two copies of the amplicon, at 11-80 and 111-180)
+  Outcome:  forward binds, reverse binds -> 3 products: 70, 70 and 170 bp
   Meaning:  Primers that bind more than one place make extra products,
             including a long one spanning both copies.
 
 Case 4b - Same target, max product length 100
   Mismatches allowed: 0
   Target:   (same as 4)
-  Outcome:  forward binds, reverse binds -> 2 products: 52 and 52 bp
+  Outcome:  forward binds, reverse binds -> 2 products: 70 and 70 bp
   Meaning:  The product length limit removes implausibly long products.
 
 Case 5 - Primers facing away
   Mismatches allowed: 0
-  Target:   AAAAAAAAAACAAGCTGACTATCGGACGTACGTTGCATGCCTAGGTGTTCAGAGCTACTGACAAAAAAAAAA
+  Target:   AAAAAAAAAATGACTGTCCAAGCTGACTATCGGACGTACGTTGCATGCCTAGGTGATCAGACGGTCTAGCATTGCAGTCCAAAAAAAAAA
             (reverse site first, forward site second)
   Outcome:  forward binds, reverse binds -> no product
   Meaning:  Binding alone is not enough; the primers must face each other.
@@ -110,53 +131,66 @@ BAD-DATA CASES (version 2)
 
 Case 7 - Ns inside a primer site
   Mismatches allowed: 0
-  Target:   AAAAAAAAAAGTTCANNGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
+  Target:   AAAAAAAAAAACGGTNNAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
                            ^^
-  Outcome:  forward not assessable (0 mismatches, Ns 10 and 11 bases from
+  Outcome:  forward not assessable (0 mismatches, Ns 14 and 15 bases from
             the 3' end), reverse binds -> not assessable
   Meaning:  Poorly sequenced regions are written as N. They are missing data,
             not mutations, so they are not counted as mismatches.
 
 Case 7b - Same Ns, 2 mismatches allowed (version 4)
   Mismatches allowed: 2
-  Target:   AAAAAAAAAAGTTCANNGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
-                           ^^
+  Target:   (same as 7)
   Outcome:  forward binds ("binds even if every unknown base is a mismatch"),
-            reverse binds -> product, 52 bp
+            reverse binds -> product, 70 bp
   Meaning:  0 mismatches + 2 unknown = 2, which still fits the allowance.
             When missing data cannot change the answer, the model answers
             instead of saying "not assessable".
 
 Case 8 - Sequence ends inside a primer site
   Mismatches allowed: 0
-  Target:   AAAAAAAAAAGTTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTAT
-            (stops after 12 of the reverse site's 16 bases)
-  Outcome:  forward binds, reverse not assessable ("runs off the end")
-            -> not assessable
+  Target:   AAAAAAAAAAACGGTCTAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAG
+            (stops after 12 of the reverse site's 24 bases)
+  Outcome:  forward binds, reverse not assessable ("runs off the end",
+            site would be 57-80) -> not assessable
   Meaning:  Real genomes often have trimmed ends; a cut-off site is missing
             data, not a failed primer.
 
 Case 9 - Sequence starts inside a primer site
   Mismatches allowed: 0
-  Target:   AGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
-            (first 4 bases of the forward site are missing)
+  Target:   TCTAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+            (first 4 bases of the forward site are missing; 16 of 20 remain)
   Outcome:  forward not assessable ("runs off the start"), reverse binds
             -> not assessable
   Meaning:  Same as Case 8, at the other end of the sequence.
 
 Case 10 - Real mismatches next to missing data
   Mismatches allowed: 1
-  Target:   AAAAAAAAAAGTTNAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGATGAATATAGGAAAAAAAAAAA
-                         ^                                    ^   ^   ^
-  Outcome:  forward binds (one N fits an allowance of 1), reverse
-            mismatched (3 real mismatches) -> no product
+  Target:   AAAAAAAAAAACGNTCTAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACAGTCCCAGCTAACTAACGGAAAAAAAAAAA
+                         ^                                              ^    ^    ^    ^
+  Outcome:  forward binds (one N, 17 from 3', fits an allowance of 1),
+            reverse mismatched (4 real mismatches) -> no product
             reverse near-miss: "none close" (see Meaning)
   Meaning:  The reverse primer cannot bind anywhere, so no product is
             possible whatever the N hides. (Version 2 wrongly said "not
             assessable"; fixed in version 3. Version 4: the forward primer
             now "binds", since 1 N cannot break an allowance of 1.)
-            Known limit: the near-miss search needs one exact 5-base stretch.
-            These 3 mismatches, 4 bases apart, leave none, so it is not found.
+            Known limit: the near-miss search needs one exact 6-base stretch (k = 6).
+            These 4 mismatches, 5 bases apart, cut the 24-base site into
+            stretches of 4 bases, so it is not found.
+
+Case 10b - A near-miss that k = 6 misses but k = 5 would find
+  Mismatches allowed: 1
+  Target:   AAAAAAAAAAACGGTATAGCAATGCAGACCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+                           ^     ^     ^
+  Outcome:  k = 6: forward mismatched, near-miss "none close"
+            k = 5: forward mismatched, near-miss found: 3 events, 3, 9 and
+                   15 from 3' (primer T, genome A; primer T, genome A;
+                   primer C, genome A; all mild)
+  Meaning:  The 3 mismatches cut the 20-base forward site into exact
+            stretches of 5, 5, 5 and 2 bases. A 6-base seed fits in none of
+            them. This is the cost of the faster k = 6 index: a 20-base
+            primer's near-miss is only guaranteed with up to 2 events.
 
 
 EDGE CASES (version 3)
@@ -164,93 +198,107 @@ EDGE CASES (version 3)
 
 Case 11 - A primer pairs with itself
   Mismatches allowed: 0
-  Target:   AAAAAAAAAAGTTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTGTCAGTAGCTCTGAACAAAAAAAAAA
+  Target:   AAAAAAAAAAACGGTCTAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGGGACTGCAATGCTAGACCGTAAAAAAAAAA
             (forward site, insert, then the forward primer's reverse complement)
-  Outcome:  forward binds on both strands, reverse mismatched
-            -> product, 52 bp, forward x forward
+  Outcome:  forward binds on both strands (11-30 and 57-76), reverse
+            mismatched -> product, 66 bp (20 + 26 + 20), forward x forward
   Meaning:  In a real tube a primer can amplify on its own; the model must
             not only look for forward x reverse.
 
 Case 12 - Overlapping primer sites
   Mismatches allowed: 0
-  Reverse primer: TGCAACGTACGGTCAG  (its site starts inside the forward site)
-  Target:   AAAAAAAAAAGTTCAGAGCTACTGACCGTACGTTGCAAAAAAAAAAA
-  Outcome:  forward binds (11-26), reverse binds (22-37) -> product, 27 bp
+  Reverse primer: GGCATGCAACGTACGGGACT  (20 bases; its site starts inside the forward site)
+  Target:   AAAAAAAAAAACGGTCTAGCATTGCAGTCCCGTACGTTGCATGCCAAAAAAAAAA
+  Outcome:  forward binds (11-30), reverse binds (26-45) -> product, 35 bp
   Meaning:  Sites that share bases still pair correctly into a short product.
 
 Case 13 - Mismatch allowance too high for the primer
   Mismatches allowed: 3
-  Target:   (Case 1 amplicon)
-  Outcome:  error: "16 bases is too short to seed with k=5 while allowing
-            3 mismatches"
+  Primers:  set B (18-base forward, 30-base reverse)
+  Target:   (set B amplicon)
+  Outcome:  error: "forward: 18 bases is too short to seed with k=6 while
+            allowing 3 mismatches"
+            (18 // 4 = 4-base pieces < 6; the 30-base reverse would be
+            fine: 30 // 4 = 7 >= 6)
   Meaning:  The search could silently miss sites, so it stops and says so
             instead of giving an incomplete answer.
 
 Case 14 - Palindromic primer
   Mismatches allowed: 0
-  Forward primer: GCATGCATATGCATGC  (its own reverse complement)
-  Target:   AAAAAAAAAAGCATGCATATGCATGCAAAAAAAAAA
-  Outcome:  forward binds "+" AND "-" at the same spot (11-26)
-            -> no product (16 bp is below the 20 bp minimum)
+  Forward primer: GACTAGCTTAAGCTAGTC  (18 bases, its own reverse complement)
+  Target:   AAAAAAAAAAGACTAGCTTAAGCTAGTCAAAAAAAAAA
+  Outcome:  forward binds "+" AND "-" at the same spot (11-28)
+            -> no product (18 bp is below the 20 bp minimum)
   Meaning:  One site can count on both strands; it must not be turned into
             a fake product.
 
 Case 15 - Degenerate base in the primer
   Mismatches allowed: 0 (genome C, T), 1 (genome A)
-  Forward primer: GTTCAGAGYTACTGAC  (Y = C or T)
-  Target:   AAAAAAAAAAGTTCAGAGATACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
-                              ^   (genome A shown; also tested with C and T)
+  Forward primer: ACGGTCTAGYATTGCAGTCC  (Y = C or T)
+  Target:   AAAAAAAAAAACGGTCTAGAATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+                               ^   (genome A shown; also tested with C and T)
   Outcome:  genome C -> binds, 0 mismatches
             genome T -> binds, 0 mismatches
-            genome A -> binds with 1 mismatch (8 from 3': primer Y, genome A, mild)
+            genome A -> binds with 1 mismatch (11 from 3': primer Y, genome A, mild)
   Meaning:  Published primers and probes can contain IUPAC codes (the CDC
             N3 probe has a Y); Y must accept C or T and nothing else.
 
 Case 16 - Probe binds inside the product
   Mismatches allowed: 0
-  Probe:    CGTACGTTGCATGCCTAGGT
-  Target:   (Case 1 target)
-  Outcome:  forward, reverse and probe bind -> product (probe: binds)
+  Probe:    CGTACGTTGCATGCCTAGGTGATCAG  (26 bases)
+  Target:   (Case 1a target)
+  Outcome:  forward, reverse and probe (31-56) bind -> product (probe: binds)
   Meaning:  qPCR only gives a signal if the probe also binds inside the
             product.
 
 Case 17 - Primers bind, probe does not
   Mismatches allowed: 1
-  Probe:    CGTACGTTGCATGCCTAGGT
-  Target:   AAAAAAAAAAGTTCAGAGCTACTGACCGAACGTTGAATGCCAAGGTCAAGCTGACTATCGGAAAAAAAAAAA
-                                        ^      ^     ^
-  Outcome:  forward binds, reverse binds, probe mismatched (3 mismatches)
-            -> no signal
+  Probe:    CGTACGTTGCATGCCTAGGTGATCAG
+  Target:   AAAAAAAAAAACGGTCTAGCATTGCAGTCCCGTAAGTTGCATACCTAGGTAATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+                                              ^       ^       ^
+  Outcome:  forward binds, reverse binds, probe mismatched (3 mismatches,
+            6, 14 and 22 from its 3' end) -> no signal
   Meaning:  The DNA is still copied, but the qPCR machine would see no
             fluorescence: the test reads negative.
 
 Case 18 - Deletion inside a primer site
   Mismatches allowed: 1
-  Target:   AAAAAAAAAAGTTCAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
-            (2 bases, "AG", removed from the middle of the forward site)
+  Target:   AAAAAAAAAAACGGTCGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+            (2 bases, "TA", removed from the middle of the 20-base forward site)
   Outcome:  forward mismatched, reverse binds -> no product
             forward near-miss: 1 event, deletion of 2 bases
-            (primer bases 11-12 from 3' have no genome partner)
-  Meaning:  A deletion is one mutation, not a string of mismatches; this is
-            how the Alpha spike 69-70 deletion will be recognised.
+            (primer bases 13-14 from 3' have no genome partner)
+  Meaning:  A deletion is one mutation, not a string of mismatches.
 
-Case 18b - Deletion too long for a 16-base primer
+Case 18b - 6-base deletion, too long for an 18-base primer
   Mismatches allowed: 1
-  Target:   AAAAAAAAAAGTTCACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
-            (6 bases removed from the forward site)
+  Primers:  set B
+  Target:   AAAAAAAAAACAGTGCATCGAGTGACCGTATCAGGTCATGCAGTCCAGGCTAACGTCTCGAAGCTACAGTCGATGACAAAAAAAAAA
+            (6 bases, "TTACGG", removed from the 18-base forward site)
   Outcome:  forward mismatched, near-miss "none close"
-  Meaning:  Only 10 primer bases would still match (14 required). On random
-            genomes such weak matches appear by chance, so the model does
-            not guess. Longer primers (20-24 bases, like the CDC ones) can
-            show a 6-base deletion.
+  Meaning:  Only 18 - 6 = 12 primer bases would still match (14 required).
+            On random genomes such weak matches appear by chance, so the
+            model does not guess.
+
+Case 18c - The same 6-base deletion in a 30-base primer is found
+  Mismatches allowed: 1
+  Primers:  set B
+  Target:   AAAAAAAAAACAGTGCTTACGGATCGAGTGACCGTATCAGGTCATGCAGTCCAGGCTAACGTCTCACAGTCGATGACAAAAAAAAAA
+            (6 bases, "GAAGCT", removed from the middle of the 30-base reverse site)
+  Outcome:  forward binds, reverse mismatched -> no product
+            reverse near-miss: 1 event, deletion of 6 bases
+            (primer bases 13-18 from 3' have no genome partner)
+  Meaning:  30 - 6 = 24 bases still match, so a long primer can show a
+            6-base deletion like Alpha's spike 69-70 deletion. Together
+            with 18b: whether a deletion is recognised depends on primer length.
 
 Case 19 - Insertion inside a primer site
   Mismatches allowed: 1
-  Target:   AAAAAAAAAAGTTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGATTTCTATCGGAAAAAAAAAAA
-                                                                  ^^^
+  Target:   AAAAAAAAAAACGGTCTAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGTTTCTGACTATCGGAAAAAAAAAAA
+                                                                                ^^^
   Outcome:  forward binds, reverse mismatched -> no product
             reverse near-miss: 1 event, insertion of 3 bases
-            (extra genome bases between primer bases 8 and 9 from 3')
+            (extra genome bases between primer bases 12 and 13 from 3')
   Meaning:  Extra bases in the genome are recognised as one insertion.
 
 
@@ -259,71 +307,75 @@ VERSION 4 LOGIC CASES
 
 Case 20a - Ambiguity code in the genome that might match
   Mismatches allowed: 0
-  Target:   AAAAAAAAAAGTTCAGAGYTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
-                              ^   (genome Y = C or T; primer has C)
-  Outcome:  forward not assessable (Y counted as unknown, 8 from 3' end)
+  Target:   AAAAAAAAAAACGGTCTAGYATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+                               ^   (genome Y = C or T; primer has C)
+  Outcome:  forward not assessable (Y counted as unknown, 11 from 3' end)
   Meaning:  Y could be the C the primer needs, or a T that mismatches.
 
 Case 20b - Ambiguity code in the genome that cannot match
   Mismatches allowed: 0, then 1
-  Target:   AAAAAAAAAAGTTCAGAGRTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
-                              ^   (genome R = A or G; primer has C)
+  Target:   AAAAAAAAAAACGGTCTAGRATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+                               ^   (genome R = A or G; primer has C)
   Outcome:  tolerance 0: forward mismatched
-            tolerance 1: forward binds (8 from 3': primer C, genome R, severe)
+            tolerance 1: forward binds (11 from 3': primer C, genome R, severe)
   Meaning:  Neither A nor G pairs with C's template, so R is a certain
             mismatch, not missing data. Version 3 threw this information away.
 
 Case 20c - Degenerate primer meets ambiguous genome
   Mismatches allowed: 0
-  Forward primer: GTTCAGAGYTACTGAC
+  Forward primer: ACGGTCTAGYATTGCAGTCC
   Target:   (Case 20a target: genome Y)
   Outcome:  forward binds, 0 mismatches, 0 unknown
   Meaning:  Primer Y accepts both C and T, so a genome Y is a certain match.
 
 Case 21a - Mild mismatch at the 3' end
   Mismatches allowed: 1
-  Target:   AAAAAAAAAAGTTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTTAAGCTGACTATCGGAAAAAAAAAAA
-                                                          ^
-  Outcome:  product, 52 bp, 3' risk LOW (reverse primer G opposite template T)
-  Meaning:  G-T mismatches are usually extended through; the warning is graded
+  Target:   AAAAAAAAAAACGGTCTAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGCGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+                                                                    ^
+  Outcome:  product, 70 bp, 3' risk LOW (reverse primer A opposite template C)
+  Meaning:  A-C mismatches are usually extended through; the warning is graded
             low instead of treated like a severe one.
 
 Case 21b - Unknown base at the 3' end
   Mismatches allowed: 1
-  Target:   AAAAAAAAAAGTTCAGAGCTACTGANCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
-                                     ^
+  Target:   AAAAAAAAAAACGGTCTAGCATTGCAGTCNCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+                                         ^
   Outcome:  forward binds (fits the allowance even if N is a mismatch),
-            product, 52 bp, 3' risk POSSIBLE
+            product, 70 bp, 3' risk POSSIBLE
   Meaning:  The site binds whatever N is, but the last base is unknown, so a
             3' problem cannot be ruled out.
 
 Case 22 - 1-base deletion in the primer's 5' half
   Mismatches allowed: 1, then 0
-  Target:   AAAAAAAAAAGTCAGAGCTACTGACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
-            (one T removed from the start of the forward site)
-  Outcome:  tolerance 1: forward binds through a 1-base deletion (15 from 3'),
-                         product 51 bp (one base shorter)
+  Target:   AAAAAAAAAAACGTCTAGCATTGCAGTCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+            (one G removed from the start of the forward site)
+  Outcome:  tolerance 1: forward binds through a 1-base deletion (17 or 18
+                         from 3': the two Gs are interchangeable),
+                         product 69 bp (one base shorter)
             tolerance 0: forward mismatched (the gap counts as 1 mismatch)
   Meaning:  A small gap far from the 3' end usually still lets the primer
             extend. Version 3 always called it a failure.
 
 Case 22b - 1-base deletion in the primer's 3' half
   Mismatches allowed: 1
-  Target:   AAAAAAAAAAGTTCAGAGCTACTACCGTACGTTGCATGCCTAGGTCAAGCTGACTATCGGAAAAAAAAAAA
-            (the G 3 bases from the forward primer's 3' end removed)
-  Outcome:  forward mismatched; near-miss: deletion of 1 base, 3 from 3'
+  Target:   AAAAAAAAAAACGGTCTAGCATTGCATCCCGTACGTTGCATGCCTAGGTGATCAGTGACTGTCCAAGCTGACTATCGGAAAAAAAAAAA
+            (the G 4 bases from the forward primer's 3' end removed)
+  Outcome:  forward mismatched; near-miss: deletion of 1 base, 4 from 3'
   Meaning:  A gap near the 3' end is not allowed to bind; the near-miss
-            explains why the primer fails.
+            explains why the primer fails. (Read without a gap, the last
+            4 bases give 2 mismatches, more than the allowance.)
 
 
 SEARCH CHECKS (version 4)
 -------------------------
 
 Case 23 - Fast search vs slow every-position search
-  Setup:    200 random 300-base targets with mutated primer copies, scattered
-            N/Y bases and cut ends; mismatch allowances 0, 1 and 2
-  Outcome:  all 600 searches find exactly the same sites (1361 sites)
-  Meaning:  The k-mer shortcut never skips a real site.
+  Setup:    primers of 18, 20, 24 and 30 bases; 50 random 300-base targets
+            each, with mutated primer copies, scattered N/Y bases and cut
+            ends; mismatch allowances 0, 1 and 2
+  Outcome:  all 600 searches find exactly the same sites (1129 sites)
+  Meaning:  The k-mer shortcut (k = 6) never skips a real site, at any
+            length in the 18-30 range.
 
 Case 24 - No invented near-misses
   Setup:    CDC N1 primers and probe on a random 30,000-base sequence

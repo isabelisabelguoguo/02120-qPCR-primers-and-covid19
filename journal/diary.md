@@ -179,7 +179,7 @@ answer could be worked out by hand first (7 test cases).
 
 ## Log 6 · 2026-10-30 · First variant results (quick first pass)
 
-**Commits:** `f0b44dd`, `761fe07` (#35), `5834b32` (#36), then #37 and the session logs (filled in at the next update)
+**Commits:** `f0b44dd`, `761fe07` (#35), `5834b32` (#36), `7892816` (#37 and the session logs)
 
 ### What I did
 - Wrote a quick script, `variant_check.py`, that runs the CDC N1, N2 and N3
@@ -240,6 +240,35 @@ answer could be worked out by hand first (7 test cases).
   This happens over months as new variants take over, not in a few rounds of
   copying. A primer across Alpha's spike 69-70 deletion would also be the
   positive control above.
+
+---
+
+## Log 7 · 2026-11-09 · Realistic test primers and k = 6
+
+**Commit:** filled in at the next update
+
+**Note:** most primers used in real life are 18-30 letters (bases) long:
+long enough to stick to only one place in a genome, short enough to stick
+quickly. The CDC primers and probes are 18-24 letters.
+
+### What I did
+- Noticed my made-up test primers were only 16 letters long, while real qPCR
+  primers are 18-30. The 16 had no real reason behind it, so I redid every
+  hand-solvable test with new made-up primers of 18, 20, 24 and 30 letters
+  and a 26-letter probe, and worked out every answer again **(#38)**.
+- A new test shows the same 6-letter deletion is spotted in a 30-letter
+  primer but not in an 18-letter one, because too few letters would be left
+  to be sure it is not chance **(#38)**.
+- Learned what the lookup table's word length (k) does. The program cuts each
+  primer into pieces (one more piece than the mismatches allowed), so at least
+  one piece must match exactly (the pigeonhole principle), and looks up the
+  start of each piece. Every piece must be at least k letters long **(#39)**.
+- Changed k from 5 to 6. Longer words match fewer random places, so the
+  program is faster (tests: ~18 s down to ~10 s), and all real primers are
+  long enough. The CDC and variant results did not change **(#39)**.
+- The cost: when a primer fails, the "where did it almost stick" search can
+  now miss a site whose mismatches leave no 6-letter stretch intact. A new
+  test shows a case that k = 5 finds and k = 6 misses **(#40)**.
 
 ---
 

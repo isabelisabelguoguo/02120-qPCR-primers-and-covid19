@@ -265,7 +265,7 @@ shortened #1 to the seeding limit.
 
 ## Log 6 · 2026-10-30 · First variant results (quick first pass)
 
-**Commits:** `f0b44dd`, `761fe07` (#35), `5834b32` (#36), then #37 and the session logs (filled in at the next update)
+**Commits:** `f0b44dd`, `761fe07` (#35), `5834b32` (#36), `7892816` (#37 and the session logs)
 
 **#33. Problem:** the model had only been run on the reference genome, not on
 the variants the project asks about.
@@ -316,15 +316,72 @@ uses the mismatch count alone, so a severe 3' mismatch still gives
 
 ---
 
+## Log 7 · 2026-11-09 · Realistic test primers and k = 6
+
+**Commit:** filled in at the next update
+
+**Note:** most primers used in real (biological) PCR and qPCR are 18-30
+bases long: long enough to be unique in a genome and to anneal at about
+55-65 °C, short enough to bind quickly and cheaply. The CDC SARS-CoV-2
+primers and probes are 18-24 bases. The tests and k = 6 are built around
+this range.
+
+**#38. Problem:** every hand-solvable test used 16-base fake primers, shorter
+than real qPCR primers (18-30 bases; the CDC ones are 18-24). The 16 was never
+justified; it was simply the longest length that fit k = 5 with 2 mismatches
+(16 // 3 = 5).
+**Fix:** `test_first_model_factor_specificity.py` rebuilt on two fake sets:
+set A (`FORWARD_A` 20, `REVERSE_A` 24, `PROBE_A` 26 bases; 70 bp amplicon,
+used by most cases) and set B (`FORWARD_B` 18, `REVERSE_B` 30 bases; 73 bp
+amplicon, for length cases), plus an 18-base `PALINDROME` and a 20-base
+`OVERLAP_REVERSE`. Every expected answer was redone by hand. Changes beyond
+the numbers:
+- Case 1b (new): exact match with set B, 73 bp.
+- Cases 3, 3c, 21a: the planted 3' and 5' mismatches are now A-C (mild).
+- Case 10: 4 mismatches 5 apart are needed to hide a 24-base site from the
+  near-miss search (3 always leave a long enough stretch).
+- Case 13: the error now comes from the 18-base primer (18 // 4 = 4).
+- Case 18b now uses the 18-base primer (6-base deletion leaves 12 < 14
+  matched bases, "none close"); new Case 18c finds the same 6-base deletion in
+  the 30-base primer (24 bases still match). Whether a deletion is recognised
+  depends on primer length.
+- Case 22b: the 3'-half deletion moved to 4 from the 3' end; at 2 or 3 the
+  neighbouring Cs made it look like 0 or 1 mismatch.
+- Case 23 now checks primers of 18, 20, 24 and 30 bases (600 searches agree
+  with the brute-force search, 1129 sites).
+`test_cases_specificity.txt` rewritten with the new targets and markers;
+the model's comments no longer use 16-base examples.
+
+**#39. Problem:** k = 5 was a leftover of the 16-base test primers. With real
+primers of 18 bases or more, a longer seed is allowed and much faster: a
+random 6-mer hits about 7 places in a 30,000-base genome, a 5-mer about 29.
+**Fix:** `run_model` default `k=6`, with the reason written above
+`build_kmer_index`. The seeding rule (length // (max_mismatches + 1) >= k)
+now needs at least 18 bases with the default 2 mismatches; every CDC oligo
+qualifies (shortest: N2 reverse, 18). The tests take ~10 s instead of
+~18 s. `cdc_reference_check.py` and `variant_check.py` give identical results
+with k = 5 and k = 6.
+
+**#40. Problem:** the near-miss and small-gap searches also start from exact
+k-base stretches, so k = 6 weakens them: a near-miss is now guaranteed with
+up to 2 events for 18- and 20-base primers (3 for 24, 4 for 30), down from 3
+for a 20-base primer with k = 5.
+**Fix:** documented as a limit (Section 5 comment) and shown by new Case
+10b: 3 mismatches cut the 20-base forward site into exact stretches of
+5, 5, 5 and 2 bases; with k = 6 the near-miss is "none close", with `k=5` it
+is found (3 events, 3, 9 and 15 from the 3' end).
+
+---
+
 ## Still open (known limits after version 4)
-- Near-miss and small-gap searches need an exact 5-base stretch (#15).
+- Near-miss and small-gap searches need an exact 6-base stretch (#15, #40).
 - Near-miss limits (#16, #17) were tuned on random sequence, not real genomes
   with repeats.
 - Severity is a two-level rule (#20); real effects also depend on
   neighbouring bases and positions beyond the 3' window.
 - Sites running off the start print negative positions (e.g. -3-48).
 - Input is not cleaned of pasted spaces or line breaks.
-- The k-mer index is rebuilt on every run; the test suite takes ~14 s.
+- The k-mer index is rebuilt on every run; the test suite takes ~10 s.
 - The mismatch allowance can only be changed in the code.
 - Variants checked with one isolate each (#33).
 - Severity and 3' risk do not change the outcome; only the mismatch count
