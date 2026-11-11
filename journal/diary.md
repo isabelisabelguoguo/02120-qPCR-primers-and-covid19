@@ -354,7 +354,8 @@ quickly. The CDC primers and probes are 18-24 letters.
 
 ## Log 10 · 2026-11-11 · Check-in practice (no model change)
 
-**Commit:** filled in at the next update
+**Commits:** `6da5ebe`, then #46, the primer image and the session logs
+(filled in at the next update)
 
 ### What I did
 - Practised explaining the first model for my check-in, one question at a
@@ -365,6 +366,27 @@ quickly. The CDC primers and probes are 18-24 letters.
 - Worked hand examples on severity. The step I kept skipping: complement
   the genome letter to get the template base *first*, then check the pair
   against the severe list (A/A, G/A, A/G, C/C) **(#20, #41)**.
+- Worked out which strand each primer binds, using this picture:
+
+  ![Primers binding each strand, then DNA replication](images/primer_binding_nhgri.jpg)
+  *Image: NHGRI Talking Glossary, "Primer",
+  <https://www.genome.gov/genetics-glossary/Primer>*
+
+  - The **reverse primer** is complementary to the + strand (top, 5'→3'),
+    so it binds the + strand and extends leftward.
+  - The **forward primer** has the same sequence as the + strand, so it
+    binds the − strand (bottom) and extends rightward.
+  - The two primers point toward each other, so each copies across the
+    other's site. That makes the product.
+  - In the model, `strand +` / `strand −` say whether the primer's
+    *sequence* matches the genome as written (+) or only after reverse
+    complementing (−). It is never the strand the primer sticks to, which
+    is always the other one. A product needs a + site on the left and a −
+    site on the right, 20-1,000 bases apart.
+- Changed the demo at the bottom of the first model so I can watch it work.
+  It runs the model once on a sample genome, prints `running <function>`
+  for each step (repeat calls grouped with a count), and ends with
+  `return output = ` and everything the model returns **(#46)**.
 
 ### Things to work on for next time
 - Use more than one genome per variant (#33).
@@ -373,6 +395,10 @@ quickly. The CDC primers and probes are 18-24 letters.
   6-base seed (#15, #40).
 - Save the Yale spike Δ69-70 primers in `data/primers/` and run them.
 - In model 2, work out Tm for sites with an insertion or deletion (#44).
+- Rename the project folder so it has no space. The Run button breaks on
+  `programming project` and never runs the file, so it prints nothing.
+- Practise reading the demo trace: say what each `running` step does and
+  where the forward, reverse and probe sites come from (#46).
 
 ---
 

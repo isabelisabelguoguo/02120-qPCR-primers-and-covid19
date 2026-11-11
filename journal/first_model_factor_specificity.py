@@ -44,6 +44,7 @@
 #   test_cases_specificity.txt             - every test case and its outcome
 #   modification documentation.md          - every problem found and fixed
 #
+# Run the demo with:      python3 journal/first_model_factor_specificity.py
 # Run the tests with:     python3 journal/test_first_model_factor_specificity.py
 # Run the CDC check with: python3 journal/cdc_reference_check.py
 # =============================================================================
@@ -859,3 +860,80 @@ def read_fasta(path):
             elif line:
                 lines.append(line)
     return header, "".join(lines).upper()
+
+
+# =============================================================================
+# SECTION 11: DEMO (runs only when this file is run directly)
+# -----------------------------------------------------------------------------
+# A made-up 120-base genome with one mutation 2 bases from the forward
+# primer's 3' end. Every function in this file is wrapped so the run prints
+# "running <function>" for each step, nested under the function that called
+# it. Repeat calls are grouped under one line with a count, e.g. (x2577),
+# in the order each function was first called. The last line prints the
+# dictionary run_model returns.
+# Run with: python3 journal/first_model_factor_specificity.py
+# =============================================================================
+
+if __name__ == "__main__":
+    import functools
+    import pprint
+    import types
+
+    demo_genome = ("TTGACCATGGCAAGTCCTAGCAT"             # filler
+                   "ACGTTGCAGGTCAATCGGATCCAA"            # forward primer site (24 nt)
+                   "GTCAGGCATTCGAACGTAAGGCTTACCTGAGTCG"  # middle (probe lives here)
+                   "TGGCACTTAGCGATCCAAGTGTCA"            # reverse primer site
+                   "GGATTCACCGTAACGT")                   # filler
+    demo_forward = "ACGTTGCAGGTCAATCGGATCCAA"
+    demo_probe = "CATTCGAACGTAAGGCTTACC"
+    demo_reverse = reverse_complement("TGGCACTTAGCGATCCAAGTGTCA")  # written as ordered
+
+    # change the base 2 from the forward primer's 3' end (A -> G)
+    mutation_at = demo_genome.index(demo_forward) + len(demo_forward) - 2
+    demo_variant = demo_genome[:mutation_at] + "G" + demo_genome[mutation_at + 1:]
+
+    print("input genome:  ", demo_variant)
+    print("input forward: ", demo_forward)
+    print("input reverse: ", demo_reverse)
+    print("input probe:   ", demo_probe)
+    print()
+
+    # -- record every call as a tree: {"name": ..., "calls": [child calls]}
+    call_tree = {"name": None, "calls": []}
+    open_calls = [call_tree]
+
+    def traced(function):
+        @functools.wraps(function)
+        def wrapper(*args, **kwargs):
+            call = {"name": function.__name__, "calls": []}
+            open_calls[-1]["calls"].append(call)
+            open_calls.append(call)
+            try:
+                return function(*args, **kwargs)
+            finally:
+                open_calls.pop()
+        return wrapper
+
+    for name, value in list(globals().items()):
+        if isinstance(value, types.FunctionType) and value.__module__ == __name__:
+            globals()[name] = traced(value)
+
+    def call_lines(name, count, calls, depth):
+        """'running <name>' plus its sub-calls, grouped by name, indented by depth."""
+        lines = ["    " * depth + f"running {name}" + (f"   (x{count})" if count > 1 else "")]
+        groups = {}
+        for call in calls:
+            group = groups.setdefault(call["name"], [0, []])
+            group[0] += 1
+            group[1] += call["calls"]
+        for sub_name, (sub_count, sub_calls) in groups.items():
+            lines += call_lines(sub_name, sub_count, sub_calls, depth + 1)
+        return lines
+
+    output = run_model(demo_forward, demo_reverse, demo_variant, probe=demo_probe)
+
+    for call in call_tree["calls"]:
+        print("\n".join(call_lines(call["name"], 1, call["calls"], 0)))
+    print()
+    print("return output = ", end="")
+    pprint.pprint(output, sort_dicts=False)

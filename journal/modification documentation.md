@@ -515,10 +515,26 @@ all three assays give "product" at 55 C.
 
 ## Log 10 · 2026-11-11 · Check-in practice (no model change)
 
-**Commit:** filled in at the next update
+**Commits:** `6da5ebe`, then #46, the primer image and the session logs
+(filled in at the next update)
 
-No code or data changed. This session was practice for explaining the first
-model at the check-in.
+The model itself did not change. This log was practice for explaining the
+first model at the check-in, then one change to the demo (#46).
+
+**#46. Problem:** the demo printed only the final report, so I couldn't see
+which functions run, in what order, to get from the genome to the result.
+**Fix:** Section 11 (the `if __name__ == "__main__":` demo) now runs
+`run_model` once on the 120-base sample genome with a mutation 2 bases from
+the forward primer's 3' end. Every function in the file is wrapped (`traced`)
+so the run prints `running <function>`, indented under its caller. Repeat
+calls are grouped into one line with a count, e.g. `genome_vs_primer (x2577)`,
+in order of first call; without grouping the trace is about 12,000 lines.
+The last line prints `return output = ` and the full dictionary `run_model`
+returns. The demo runs only when the file is run directly, not when the
+tests or `variant_check.py` import it. All tests still pass.
+
+Also added to the diary: the NHGRI primer diagram
+(`images/primer_binding_nhgri.jpg`) and what `strand +` / `strand −` mean.
 
 **To do next time** (limits and next steps reviewed in the practice):
 - **One genome per variant:** run each variant on several isolates (#33).
@@ -530,6 +546,9 @@ model at the check-in.
   `data/primers/` and run them through both models.
 - **Tm at indel sites:** add bulge-loop parameters so
   `second_model_annealing_temp.py` can score insertion/deletion sites (#44).
+- **Run button:** VS Code's Run button quotes the path twice because the
+  folder name `programming project` has a space, so the file never runs.
+  Rename the folder (e.g. `programming_project`) and recreate `.venv`.
 
 ---
 
