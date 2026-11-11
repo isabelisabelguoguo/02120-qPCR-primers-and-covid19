@@ -314,7 +314,7 @@ quickly. The CDC primers and probes are 18-24 letters.
 
 ## Log 9 · 2026-11-10 · Second model: annealing temperature
 
-**Commit:** filled in at the next update
+**Commit:** `b585a97`
 
 ### What I did
 - Built my second model, `second_model_annealing_temp.py`. The first model
@@ -349,6 +349,30 @@ quickly. The CDC primers and probes are 18-24 letters.
 - Turn the probe's weaker binding into an expected Ct delay.
 - Point git at the repo's new address
   (`02120-qPCR-primers-and-covid19`).
+
+---
+
+## Log 10 · 2026-11-11 · Check-in practice (no model change)
+
+**Commit:** filled in at the next update
+
+### What I did
+- Practised explaining the first model for my check-in, one question at a
+  time: the inputs, the three levels of outcome (each oligo, each product,
+  the whole assay), the k-mer search and the pigeonhole argument, count →
+  window → severity, pairing sites into products, and the CDC reference
+  check.
+- Worked hand examples on severity. The step I kept skipping: complement
+  the genome letter to get the template base *first*, then check the pair
+  against the severe list (A/A, G/A, A/G, C/C) **(#20, #41)**.
+
+### Things to work on for next time
+- Use more than one genome per variant (#33).
+- Get a real Alpha genome (#42).
+- Remember the search can't find a site whose differences break every
+  6-base seed (#15, #40).
+- Save the Yale spike Δ69-70 primers in `data/primers/` and run them.
+- In model 2, work out Tm for sites with an insertion or deletion (#44).
 
 ---
 

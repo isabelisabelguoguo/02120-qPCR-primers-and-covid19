@@ -432,7 +432,7 @@ rounds. These rules were confirmed against the code:
 
 ## Log 9 · 2026-11-10 · Second model: annealing temperature
 
-**Commit:** filled in at the next update
+**Commit:** `b585a97`
 
 **#43. Problem:** binding was yes/no. A mismatch that the first model
 allows can still weaken the duplex enough that the oligo falls off at the
@@ -510,6 +510,26 @@ Tests (`test_second_model_annealing_temp.py`):
 CDC oligo keeps its reference Tm except the Omicron N1 probe (C28311T, #37):
 71.2 -> 64.3 C (dTm -6.8 C). It is still ~9 C above 55 C and ~100% bound, so
 all three assays give "product" at 55 C.
+
+---
+
+## Log 10 · 2026-11-11 · Check-in practice (no model change)
+
+**Commit:** filled in at the next update
+
+No code or data changed. This session was practice for explaining the first
+model at the check-in.
+
+**To do next time** (limits and next steps reviewed in the practice):
+- **One genome per variant:** run each variant on several isolates (#33).
+- **No real Alpha (B.1.1.7) genome:** the file saved as Alpha was Beta (#42).
+- **Seed limit:** `candidate_starts` and the near-miss search need an exact
+  6-base stretch (k = 6), so a site whose differences cut the primer into
+  pieces all shorter than 6 bases is not found (#15, #40).
+- **Yale spike Δ69-70 assay:** save its primers and probe in
+  `data/primers/` and run them through both models.
+- **Tm at indel sites:** add bulge-loop parameters so
+  `second_model_annealing_temp.py` can score insertion/deletion sites (#44).
 
 ---
 
