@@ -21,6 +21,9 @@ numbered, and the diary points to them as **(#n)**.
 | `second_model_annealing_temp.py` | second model: Tm and binding at the annealing temperature (Log 9) |
 | `test_second_model_annealing_temp.py` | hand-solvable Tm tests + Primer3 check |
 | `variant_check_temperature.py` | CDC N1/N2/N3 Tm on every variant |
+| `primer_design.py` | designs primers + probe for a target gene, checked with the first model (Log 11) |
+| `test_primer_design.py` | fake-genome tests for the designer |
+| `test_cases_primer_design.txt` | every designer test case and its outcome, plus the CDC check |
 | `diary.md` | plain-language log of each version |
 
 ---
@@ -515,8 +518,8 @@ all three assays give "product" at 55 C.
 
 ## Log 10 · 2026-11-11 · Check-in practice (no model change)
 
-**Commits:** `6da5ebe`, then #46, the primer image and the session logs
-(filled in at the next update)
+**Commits:** `6da5ebe`, then `ade42ee` (#46, the primer image and the
+session logs)
 
 The model itself did not change. This log was practice for explaining the
 first model at the check-in, then one change to the demo (#46).
@@ -552,6 +555,84 @@ Also added to the diary: the NHGRI primer diagram
 
 ---
 
+## Log 11 · 2026-11-13 · Primer design from the first model
+
+**Commit:** filled in at the next update
+
+**#47. Problem:** the models only check existing primers. For the planned
+website, a user should be able to give a genome, a target gene and a
+mismatch allowance and get primers back.
+**Fix:** new `primer_design.py`, `design_primers(genome, target,
+max_mismatches)`:
+1. `clean_sequence` accepts plain or FASTA text (drops `>` lines,
+   whitespace, lowercase); `find_target` finds the target on either strand.
+2. `possible_designs`: every `PRIMER_LENGTH` = 20 window of the target with
+   known bases only (`KNOWN_BASES`) is a forward primer; its reverse
+   complement is a reverse primer. Pairs giving `PRODUCT_LENGTH` = 60-150 bp
+   get a `PROBE_LENGTH` = 24 probe centred in the gap. Sorted by product
+   length closest to `IDEAL_PRODUCT` = 100, then start.
+3. `specific`: each oligo must have exactly one site from
+   `find_binding_sites` on the whole genome (one shared k-mer index, results
+   cached per oligo), then `run_model` must give exactly one product, status
+   "product", at the designed coordinates.
+
+`MAX_ALLOWED_MISMATCHES` = 2: with k = 6, `find_binding_sites` needs
+length // (allowance + 1) >= 6, so 20-base primers allow at most 2 (#15,
+#40). Output: 5'-forward-3', 3'-reverse-5' (written backwards to line up
+under the genome) and the order sequence, binding positions (1-based),
+lengths, product, probe position.
+
+The first draft also filtered on Tm (58-62 C, probe 6-12 C above, via the
+second model's `perfect_tm`), GC 40-60% and base runs. All of it was removed
+so the designer uses first-model information only.
+
+**#48. Problem:** the three designs returned were one pair shifted by one
+base, so all three products overlapped.
+**Fix:** a design is skipped if its product overlaps an already chosen one.
+
+**#49. Problem:** with first-model information only, nearly every window
+passes, including GC-rich ones that bind too strongly and mis-prime.
+**Fix:** Section 2b, `gc_fraction` (known bases only, so N does not lower
+it) and `gc_level`: ok <= 60% (`GC_MEDIUM_ABOVE`), medium <= 70%
+(`GC_TOO_HIGH_ABOVE`), too high above that.
+- `check_target_gc` runs first in `design_primers`, after the input checks
+  and before `find_target`: too high raises `ValueError` with the GC value
+  and the reason; medium adds a warning.
+- `usable` excludes oligos above 70%. Medium-GC oligos are kept, listed in
+  each design's `medium_gc`, and get one warning each.
+- Sort key is now (number of medium-GC oligos, product distance from 100,
+  start), so ok-GC designs come first.
+- The command line prints `ERROR: ...` and exits 1 on a `ValueError`.
+
+**#50. Problem:** `gc_percent` rounded to whole numbers, so a 69.6% target
+printed as "70 %" while labelled medium.
+**Fix:** one decimal place.
+
+**#51. Tests** (`test_primer_design.py`, cases in
+`test_cases_primer_design.txt`): a 4,400-base seeded random genome with a
+400-base target at 2001-2400. Every returned design is checked against all
+the rules and by an independent `run_model` call. 12 cases: basic, first
+design by hand (F 2001, R 2081-2100, probe 2039, 100 bp), reverse-complement
+target, FASTA input, N block, GC-rich patch, two copies (no design), a near
+copy with every 10th base changed (no design at allowance 2, 3 at
+allowance 1), 80% GC target (error), 80% GC target missing from the genome
+(GC error first), 65.5% GC target (warning) and bad input. All pass.
+The first run failed in Case 11: the test counted warnings containing
+"design", and the target warning contains "designs". Fixed in the test
+(`startswith("design ")`); the designer was unchanged.
+
+**#52. Result: CDC N1/N2/N3** on NC_045512.2, target = published product
++/- 50 bases, allowance 2:
+- The published oligos pass every designer rule: 1 site each, one product,
+  probe inside, GC 40.0-58.3%. The N3 probe has a Y, which the designer
+  never proposes (known bases only).
+- The designer does not reproduce them. Its first choices are 100 bp
+  products starting at the target's first base (e.g. N1: F 28237-28256,
+  R 28317-28336) vs the published 67-72 bp. Causes: fixed 20/24-base
+  lengths (CDC: 18-24 / 23-24) and `IDEAL_PRODUCT` = 100.
+
+---
+
 ## Still open (known limits after version 4)
 - Near-miss and small-gap searches need an exact 6-base stretch (#15, #40).
 - Near-miss limits (#16, #17) were tuned on random sequence, not real genomes
@@ -574,8 +655,17 @@ Also added to the diary: the NHGRI primer diagram
 - Tm uses 250 nM for every oligo (the Primer3 reference); CDC uses 500 nM
   primers and 125 nM probe (about 1 C difference).
 - Hairpins and primer dimers are not modelled.
+- Primer design (#47-#52): fixed 20-base primers and 24-base probes; ranks
+  only by medium-GC count, product length and position, so it does not
+  reproduce the CDC designs; no low-GC limit; no test yet where a design
+  must use a medium-GC oligo; RNase P not checked (needs the human RPP30
+  segment from NCBI).
 
 ## Planned (not built yet)
+- **Primer design, next:** allow 18-24-base primers and 20-30-base probes,
+  set `IDEAL_PRODUCT` near 70 bp, report the published design's rank among
+  the designer's options, move the CDC check into `journal/`, then the
+  website (genome box, target box, allowance box).
 Factor 2's basic plan (nearest-neighbor Tm, Primer3's salt correction,
 mismatch parameters, comparison with the 55 C annealing step, fraction
 bound) was built in Log 9 (#43-#45). Still to do for it:

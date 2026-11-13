@@ -354,8 +354,8 @@ quickly. The CDC primers and probes are 18-24 letters.
 
 ## Log 10 · 2026-11-11 · Check-in practice (no model change)
 
-**Commits:** `6da5ebe`, then #46, the primer image and the session logs
-(filled in at the next update)
+**Commits:** `6da5ebe`, then `ade42ee` (#46, the primer image and the
+session logs)
 
 ### What I did
 - Practised explaining the first model for my check-in, one question at a
@@ -402,9 +402,70 @@ quickly. The CDC primers and probes are 18-24 letters.
 
 ---
 
+## Log 11 · 2026-11-13 · Primer design from the first model
+
+**Commit:** filled in at the next update
+
+### What I did
+- Started on a website idea: paste a genome, a target gene and a mismatch
+  allowance, and get back primers and a probe. Before building the website,
+  I made the code that does the designing, `primer_design.py`.
+- The first model *checks* primers someone else designed. This one goes the
+  other way: it *designs* a forward primer, a reverse primer and a probe for
+  a target gene, then uses the first model to check them **(#47)**.
+- I kept it to what the first model knows: the sequence, the mismatch
+  allowance, where things bind on both strands, the product length, and the
+  probe being inside the product. No melting or annealing temperature. A
+  first draft borrowed Tm from the second model, and I took it out
+  **(#47)**.
+- How it designs: every 20-base stretch of the target can be a forward
+  primer, and its reverse complement a reverse primer. Pairs that make a
+  60-150 bp product get a 24-base probe in the middle. A design is kept only
+  if each primer and the probe stick in exactly one place on the whole
+  genome, and the first model finds just the one product **(#47)**.
+- The first three designs were the same pair shifted by one base, so now
+  the designs can't overlap each other **(#48)**.
+- Added GC content, because G-C pairs hold on with three bonds and A-T with
+  two, so GC-rich primers stick too hard, even where they only partly
+  match. The target's GC is checked first, before anything else runs: above
+  70% the program stops and says why; 60-70% it carries on with a warning.
+  Each primer and probe gets the same bands: above 70% is never used, and
+  60-70% is used but flagged **(#49)**.
+- GC was rounded to whole numbers, so 69.6% printed as "70 %" next to the
+  word "medium". Now it shows one decimal **(#50)**.
+- Ran 12 fake-genome test cases (`test_primer_design.py`); all pass. The
+  first run failed once, but the bug was in my test: it counted the target
+  warning as a primer warning because both contain the word "design"
+  **(#51)**.
+- Tried the CDC N1, N2 and N3 primers. They all pass the designer's rules:
+  one site each, one product, probe inside, GC 40-58%. But the designer
+  does not come up with them. It only makes 20-base primers and likes
+  100 bp products; the CDC used 18-24 bases and 67-72 bp products
+  **(#52)**.
+
+### Things to work on for next time
+- Let the designer make 18-24-base primers and 20-30-base probes, aim for
+  products of about 70 bp, and report where the CDC design ranks among its
+  options (#52).
+- Add a test where every stretch of the target is 60-70% GC, so a design
+  has to use a medium-GC primer and gets its own warning (#51).
+- Decide whether very low GC (AT-rich primers bind weakly) should also give
+  a warning (#49).
+- Move the CDC published-primer check into `journal/`, and add RNase P once
+  the human RPP30 segment is downloaded from NCBI (#52).
+- Build the website: a genome box, a target box and an allowance box (0-2).
+- Commit the new files and fill in Log 11's commit hash.
+
+---
+
 ## Where things stand
 Still open (details at the end of `modification documentation.md`): a few
 search limits, one genome per variant, and no real Alpha genome yet (#42).
 Factor 2 (annealing temperature) has a first version (Log 9). Next: Tm for
 indel sites, the CDC's real concentrations, and turning the probe's weaker
 binding into an expected Ct delay.
+
+Primer design (Log 11) works on fake genomes and passes the CDC primers, but
+does not reproduce them yet. Next: allow 18-24-base primers, aim for about
+70 bp products, and report where the published design ranks. Then the
+website.
