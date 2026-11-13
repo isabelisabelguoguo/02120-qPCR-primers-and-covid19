@@ -24,6 +24,7 @@ numbered, and the diary points to them as **(#n)**.
 | `primer_design.py` | designs primers + probe for a target gene, checked with the first model (Log 11) |
 | `test_primer_design.py` | fake-genome tests for the designer |
 | `test_cases_primer_design.txt` | every designer test case and its outcome, plus the CDC check |
+| `troubleshooting.txt` | one line per problem overcome, with the functions each fix changed |
 | `diary.md` | plain-language log of each version |
 
 ---
@@ -635,7 +636,8 @@ The first run failed in Case 11: the test counted warnings containing
 
 ## Log 12 · 2026-11-13 · Primer design: lengths, the 40-60% GC rule, ranking
 
-**Commit:** filled in at the next update
+**Commits:** `3f629ea`, then `troubleshooting.txt` (#58, filled in at the
+next update)
 
 **#53. Problem:** every primer was 20 bases and every probe 24, so most CDC
 oligos (18-24 / 23-24) could not even be among the options. A length range
@@ -689,6 +691,17 @@ CDC N1/N2/N3: all oligos pass the rules (40.0-58.3% GC). At 100 bp the N2
 reverse primer chosen is `ATGCGCGACATTCCGAAGAA`, the CDC reverse plus 2 bases
 at its 5' end. At 70 bp the products are 70 bp but at other positions:
 many designs score 0, and the earliest wins the tie.
+
+**#58. Problem:** the problems and fixes were only in this file, in date
+order and in full detail, so there was no quick overview.
+**Fix:** new `troubleshooting.txt`: one short bullet per problem overcome
+("problem -> fix"), grouped by topic, each with a "Functions:" line naming
+the functions it changed or is directly about (all names checked against
+the code). Part 1 covers the first model (#1-#46, leaving out the
+journal/repo items #5, #6, #28-#32, #34, #35); Part 2 covers
+`primer_design.py` (#47-#57), with #52 marked not yet overcome. A first
+version was a runnable `troubleshooting.py` that re-checked 15 fixes live;
+it was replaced by the plain-text summary before being committed.
 
 ---
 

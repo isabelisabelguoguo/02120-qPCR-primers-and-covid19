@@ -460,7 +460,8 @@ session logs)
 
 ## Log 12 · 2026-11-13 · Primer design: lengths, the 40-60% GC rule, ranking
 
-**Commit:** filled in at the next update
+**Commits:** `3f629ea`, then `troubleshooting.txt` (#58, filled in at the
+next update)
 
 ### What I did
 - Gave primers a length range instead of always 20 bases: primers 18-24,
@@ -493,6 +494,10 @@ session logs)
   picks other positions, but it came close on N2: its reverse primer is the
   CDC one plus two extra bases. At 70 bp the products are the right size,
   but many designs score a perfect 0, and the earliest one wins **(#57)**.
+- Wrote `troubleshooting.txt`: one line for every problem I've overcome, in
+  two parts (the first model, then primer design), each with the functions
+  it changed. It's a quick way to review everything before a check-in
+  **(#58)**.
 
 ---
 

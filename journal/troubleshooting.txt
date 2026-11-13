@@ -1,0 +1,194 @@
+TROUBLESHOOTING
+===============
+One line per problem overcome, in two parts:
+  PART 1  first_model_factor_specificity.py  (#1-#46)
+  PART 2  primer_design.py                   (#47-#57)
+Numbers match modification documentation.md, which has the full details.
+
+"Functions:" lists the functions each fix changed or is directly about.
+They are in the part's own file unless another file is named.
+
+
+PART 1: FIRST MODEL: FACTOR: SPECIFICITY
+=========================================
+
+SEARCHING FOR BINDING SITES
+- #1  The fast search breaks if primer pieces get shorter than k -> it now
+      refuses with an error (an 18-base primer allows at most 2 mismatches).
+      Functions: find_binding_sites, run_model
+- #16 Fake near-misses on random genomes -> at least 14 primer bases must
+      match exactly.
+      Functions: find_near_miss
+- #17 More chance near-misses -> at most a gap + 1 mismatch, or 4 mismatches.
+      Functions: find_near_miss
+- #24 No proof the fast search finds every site -> checked against a slow
+      brute-force search on 600 searches: identical.
+      Functions: brute_force_sites, case_search_complete
+                 (test_first_model_factor_specificity.py)
+- #39 k = 5 was a leftover and slow -> k = 6 (tests ~10 s instead of ~18 s).
+      Functions: run_model, build_kmer_index
+- #15, #40 Mismatches spread evenly can hide a near site from the search ->
+      kept as a known limit and shown in tests.
+      Functions: find_near_miss, anchors_for, find_indel_sites
+
+BAD SEQUENCING DATA
+- #2  An N counted as a mismatch, so missing data looked like a mutation ->
+      N's never count; new outcome "not assessable".
+      Functions: compare_site, oligo_outcome, assay_outcome
+- #3  Sites running off the end of a genome were never found -> now found
+      and marked "not assessable".
+      Functions: candidate_starts, find_binding_sites
+- #4  A long run of N's made every primer "not assessable" -> a site needs
+      at least 10 known bases.
+      Functions: find_binding_sites
+- #18 "Not assessable" was too cautious -> a site binds if it fits the
+      allowance even when every N is a mismatch.
+      Functions: find_binding_sites
+- #19 Ambiguity codes were all treated as N -> a genome R can never match a
+      primer C, so it now counts as a mismatch.
+      Functions: genome_vs_primer, compare_site
+
+OUTCOMES
+- #7  Assay said "not assessable" when the reverse primer bound nowhere ->
+      now "no product" unless missing data really decides it.
+      Functions: pair_into_products, product_status, assay_outcome
+- #9  The probe was ignored -> it must bind inside the product, or the
+      result is "no signal".
+      Functions: run_model, probe_inside, product_status
+- #41 A severe 3' mismatch only gave a warning -> new status "at risk",
+      ranked below a clean product.
+      Functions: product_status, assay_outcome
+
+MISMATCHES AND THE 3' END
+- #8  3' and 5' mismatches counted the same -> mismatches in the last 3 bases
+      are flagged.
+      Functions: distances_from_3prime, three_prime_risk
+- #10 Degenerate letters (the Y in the N3 probe) counted as mismatches ->
+      each letter accepts every base it stands for.
+      Functions: base_matches, expand_degenerate, seed_hits, clean_oligo
+- #11 A mismatch gave only a position -> now "primer C, genome G".
+      Functions: describe_changes
+- #20 Every mismatch counted the same -> graded severe (A-A, G-A, A-G, C-C)
+      or mild; 3' risk graded high / low / possible.
+      Functions: mismatch_severity, three_prime_risk, worst_risk
+
+INSERTIONS AND DELETIONS
+- #12 A failed primer gave no clue where it almost bound -> the closest
+      near-miss is reported, including one gap of up to 6 bases.
+      Functions: find_near_miss, placements, gapped_pairs
+- #21 Any insertion or deletion meant failure -> a 1-base gap in the 5' half
+      still binds (counts as 1 mismatch).
+      Functions: find_indel_sites, anchors_for, describe_indel
+
+REAL DATA
+- #22 Never run on real data -> CDC N1/N2/N3 give one product each on the
+      reference; the human RNase P control gives none.
+      Functions: read_fasta; read_assays, check_viral_assay,
+                 check_negative_control (cdc_reference_check.py)
+- #23, #36 N1 came out 72 bp but the table said 73 -> the table was wrong;
+      fixed to 72.
+      Functions: none changed (data fix in CDC primer sequences.tsv);
+                 checked by check_viral_assay (cdc_reference_check.py)
+- #33 Only run on the reference -> variant_check.py runs every variant genome.
+      Functions: load_genomes, fewest_mismatches, summarize (variant_check.py)
+- #37 Unexplained 1 mismatch in the Omicron N1 probe -> it is 28311 C->T, the
+      known Omicron mutation N:P13L; the assay still works.
+      Functions: none changed (a finding); seen through describe_changes
+- #42 The "Alpha" genome was really Beta -> renamed; a real Alpha genome is
+      still needed.
+      Functions: none changed (file rename); label comes from load_genomes
+                 (variant_check.py)
+
+TESTING
+- #14 Edge cases untested -> 9 new cases (palindrome, overlapping sites,
+      degenerate base, insertion, deletion, ...).
+      Functions: case_self_pairing, case_overlapping_sites,
+                 case_allowance_too_high, case_palindrome,
+                 case_degenerate_primer, case_probe_binds,
+                 case_probe_mismatched, case_insertion, case_deletion
+                 (test_first_model_factor_specificity.py)
+- #25 The random-genome check was only run by hand -> saved as a test.
+      Functions: case_random_genome (test_first_model_factor_specificity.py)
+- #38 Tests used 16-base primers, shorter than real ones -> rebuilt on
+      18-30-base primers.
+      Functions: amplicon, amplicon_b and every case_ function
+                 (test_first_model_factor_specificity.py)
+
+OUTPUT AND CODE LAYOUT
+- #13 Positions were 0-based -> printed 1-based, like the CDC table.
+      Functions: print_report
+- #26 Model and tests were one 1,000-line file -> split into two files.
+      Functions: read_fasta (added for real genomes)
+- #27 "deletion of 1 bases (bases 15-15)" -> "deletion of 1 base (base 15)".
+      Functions: format_indel
+- #46 Couldn't see which functions run -> the demo prints each step in order.
+      Functions: traced, call_lines (the demo at the bottom of the model)
+
+(Not listed: #5, #6, #28-#32, #34, #35 are about the journal and repo, not
+the model.)
+
+
+PART 2: PRIMER DESIGN (primer_design.py)
+=========================================
+
+BUILDING THE DESIGNER
+- #47 The models could only check primers, not design them -> new designer:
+      genome + target gene + mismatch allowance in, primers and probe out,
+      each design checked with the first model on the whole genome. A first
+      draft used Tm from the second model; it was taken out so only
+      first-model information is used.
+      Functions: design_primers, clean_sequence, find_target,
+                 possible_designs, binds_once, specific, print_designs
+- #48 The 3 designs were one pair shifted by one base -> a design's product
+      may not overlap an earlier one's.
+      Functions: design_primers
+
+GC CONTENT
+- #49 GC-rich primers bind too strongly, also at partly matching sites ->
+      the target's GC is checked first (above 70% stops with the reason;
+      60-70% warns), and GC-rich oligos are never used.
+      Functions: gc_fraction, gc_level, check_target_gc, usable,
+                 design_primers
+- #50 69.6% GC printed as "70 %" next to the word "medium" -> one decimal.
+      Functions: gc_percent
+- #54 Oligos were only limited from above; stable binding needs 40-60% ->
+      every primer and probe must be 40-60% GC; a target below 40% warns
+      (not an error: SARS-CoV-2 is ~38% GC); if nothing reaches 40-60%, the
+      output says GC is why.
+      Functions: usable, gc_level, check_target_gc, design_primers
+
+LENGTHS AND PRODUCT
+- #53 Every primer was 20 bases and every probe 24, but a free range would
+      give millions of designs -> primers 18-24, probes 18-30, and each
+      position gets ONE length: the one with GC closest to 50%.
+      Functions: choose_length, all_windows, centred_probe, possible_designs
+- #56 The product length was fixed around 100 bp -> the user chooses it
+      (default 100, designs within +/- 50 bp; error below 54 bp or longer
+      than the target; warning outside 60-150 bp). Off-target products
+      longer than 1000 bp are now checked too.
+      Functions: product_range, possible_designs, design_primers, specific,
+                 print_designs
+
+RANKING
+- #55 With more than one design, the order was only length and position ->
+      best match first: GC of each oligo closest to 50% and product closest
+      to the chosen length.
+      Functions: match_penalty, possible_designs, print_designs
+
+TESTING AND REAL DATA
+- #51 The test counted the target GC warning as a primer warning (both
+      contain the word "design") -> the test now matches warnings that
+      start with "design ". The designer was fine.
+      Functions: case_target_gc_medium (test_primer_design.py)
+- #57 The tests assumed fixed lengths; "every 10th base changed" stopped
+      working with 18-base primers -> length checks use the ranges, the
+      near copy changes every 12th base, and new cases cover the ranking,
+      low GC, no 40-60% stretch and a chosen product length. 15 cases pass.
+      Functions: check_design, case_ranking, case_near_copy, case_gc_island,
+                 case_target_gc_low, case_no_gc_window, case_product_length
+                 (test_primer_design.py)
+- #52 The designer did not come up with the CDC N1/N2/N3 primers -> led to
+      #53, #55 and #56. The CDC primers pass every rule, and N2's reverse
+      primer was nearly matched, but they are still not reproduced: many
+      designs score a perfect 0 and the earliest one wins. NOT YET OVERCOME.
+      Functions: none changed (a finding)
