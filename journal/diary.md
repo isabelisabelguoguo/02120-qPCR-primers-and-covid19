@@ -499,6 +499,14 @@ session logs)
   **(#58)**.
 
 ### Things to work on for next time
+- **Main goal:** finish the second model (Tm and the annealing temperature).
+  Still open: Tm for sites with an insertion/deletion or two mismatches side
+  by side (#44), the CDC's real concentrations (500 nM primers, 125 nM probe,
+  Mg2+), and turning the probe's weaker binding into an expected Ct delay
+  (#45).
+- **Then add it to the website:** show each design's Tm and how much of each
+  oligo is bound at 55 C, and translate the second model to JavaScript,
+  checked against the Python the same way as `check_website_port.py`.
 - Try the website (`website/index.html`) in the browser and decide what to
   change; then commit it with `check_website_port.py` and write Log 13.
 - Report where each CDC design ranks among the designer's options (#52).
