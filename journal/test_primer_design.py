@@ -1,5 +1,5 @@
 # =============================================================================
-# TESTS FOR: PRIMER DESIGN   (version 1)
+# TESTS FOR: PRIMER DESIGN   (version 2)
 # =============================================================================
 # The designer lives in primer_design.py; this file only tests it. Every case
 # uses a FAKE genome and a FAKE target gene, built from seeded random bases
@@ -21,7 +21,8 @@ import random
 
 from first_model_factor_specificity import reverse_complement, run_model
 from primer_design import (
-    GC_TOO_HIGH_ABOVE, PRIMER_LENGTH, PROBE_LENGTH, PRODUCT_LENGTH, design_primers, gc_fraction,
+    OLIGO_GC, PRIMER_LENGTH, PROBE_LENGTH, design_primers, gc_fraction, match_penalty,
+    product_range,
 )
 
 
@@ -56,30 +57,30 @@ def check(condition, message):
     print(f"  PASS: {message}")
 
 
-def check_errors(genome, target, allowance, words, message):
+def check_errors(genome, target, allowance, words, message, ideal_product=100):
     """design_primers must stop with a ValueError whose text contains words."""
     try:
-        design_primers(genome, target, allowance)
+        design_primers(genome, target, allowance, ideal_product)
     except ValueError as error:
         check(words in str(error), f"{message} (error: {error})")
         return
     raise AssertionError(f"{message}: no error raised")
 
 
-def check_design(design, genome, target_start, target_end, allowance):
+def check_design(design, genome, target_start, target_end, allowance, ideal_product=100):
     """Every rule a returned design must follow."""
     forward, reverse, probe = design["forward"], design["reverse"], design["probe"]
     return all([
         forward["seq"] == genome[forward["start"]:forward["end"]],
         reverse["seq"] == reverse_complement(genome[reverse["start"]:reverse["end"]]),
         probe["seq"] == genome[probe["start"]:probe["end"]],
-        len(forward["seq"]) == PRIMER_LENGTH and len(reverse["seq"]) == PRIMER_LENGTH,
-        len(probe["seq"]) == PROBE_LENGTH,
+        all(PRIMER_LENGTH[0] <= len(o["seq"]) <= PRIMER_LENGTH[1] for o in (forward, reverse)),
+        PROBE_LENGTH[0] <= len(probe["seq"]) <= PROBE_LENGTH[1],
         target_start <= forward["start"] and reverse["end"] <= target_end,
         forward["end"] <= probe["start"] and probe["end"] <= reverse["start"],
-        PRODUCT_LENGTH[0] <= design["product_length"] <= PRODUCT_LENGTH[1],
+        product_range(ideal_product)[0] <= design["product_length"] <= product_range(ideal_product)[1],
         design["product_length"] == reverse["end"] - forward["start"],
-        all(gc_fraction(o["seq"]) <= GC_TOO_HIGH_ABOVE for o in (forward, reverse, probe)),
+        all(OLIGO_GC[0] <= gc_fraction(o["seq"]) <= OLIGO_GC[1] for o in (forward, reverse, probe)),
         independent_check(design, genome, allowance),
     ])
 
@@ -116,18 +117,26 @@ def case_basic():
     check(result["warnings"] == [], "no warnings (target GC about 45 %)")
 
 
-def case_hand_solved_first_design():
-    print("\n--- Case 2: the first design, worked out by hand ---")
-    # Best = product closest to 100 bp, then earliest start: forward at the
-    # target's first base (2000), product 2000-2099, reverse window 2080-2099.
-    # Gap between primers = 2020-2079 (60 bases); 24-base probe centred:
-    # 2020 + (60 - 24) // 2 = 2038, so the probe is 2038-2061.
-    first = design_primers(GENOME, TARGET, 2)["designs"][0]
-    check(first["forward"]["start"] == 2000, "forward starts at 2000")
-    check(first["reverse"]["start"] == 2080 and first["reverse"]["end"] == 2100,
-          "reverse window 2080-2099")
-    check(first["probe"]["start"] == 2038, "probe starts at 2038, centred in the gap")
-    check(first["product_length"] == 100, "product is 100 bp")
+def case_ranking():
+    print("\n--- Case 2: ranking, best match first (worked out by hand) ---")
+    # penalty = sum over the 3 oligos of |GC% - 50| + |product - 100| / 10
+    #   forward 9/20 = 45 % -> 5, reverse 10/20 = 50 % -> 0,
+    #   probe 11/20 = 55 % -> 5, product 80 bp -> 20 / 10 = 2;  total 12
+    forward = "AAAAAAAAAAAGGGGGGGGG"   # 9 G of 20
+    reverse = "AAAAAAAAAAGGGGGGGGGG"   # 10 G of 20
+    probe = "AAAAAAAAAGGGGGGGGGGG"     # 11 G of 20
+    check(match_penalty(forward, reverse, probe, 80) == 12, "hand example: penalty 12")
+    check(match_penalty(reverse, reverse, reverse, 100) == 0, "all 50 %, 100 bp: penalty 0")
+
+    designs = design_primers(GENOME, TARGET, 2)["designs"]
+    first = designs[0]
+    # design 1: forward TGGCAGCTAGGTCGTGTCATGTTA = 12 G/C of 24 = 50 %,
+    # and every oligo 50 %, product 100 bp -> penalty 0, the best possible
+    check(first["forward"]["seq"] == "TGGCAGCTAGGTCGTGTCATGTTA", "design 1 forward as worked out")
+    check(first["match_penalty"] == 0 and first["product_length"] == 100,
+          "design 1: every oligo 50 % GC, 100 bp, penalty 0")
+    penalties = [d["match_penalty"] for d in designs]
+    check(penalties == sorted(penalties), f"designs come out best match first {penalties}")
 
 
 def case_target_minus_strand():
@@ -163,10 +172,9 @@ def case_gc_island():
     genome = basic_genome(target)
     result = design_primers(genome, target, 2)
     oligos = [d[o]["seq"] for d in result["designs"] for o in ("forward", "reverse", "probe")]
-    check(gc_fraction(target) <= 0.60, f"target GC {gc_fraction(target):.1%} is ok overall")
     check(len(result["designs"]) > 0, f"{len(result['designs'])} designs found")
-    check(all(gc_fraction(seq) <= GC_TOO_HIGH_ABOVE for seq in oligos),
-          "no primer or probe above 70 % GC")
+    check(all(0.40 <= gc_fraction(seq) <= 0.60 for seq in oligos),
+          "every primer and probe is 40-60 % GC (none from the G/C stretch)")
 
 
 # =============================================================================
@@ -181,18 +189,18 @@ def case_two_copies():
 
 
 def case_near_copy():
-    print("\n--- Case 8: a second copy with every 10th base changed ---")
-    # Any 20-base primer covers exactly 2 changed bases of the copy, so it
-    # binds the copy with 2 mismatches: off-target at allowance 2, but not at
-    # allowance 1.
-    near_copy = "".join(SHIFT[b] if i % 10 == 0 else b for i, b in enumerate(TARGET))
+    print("\n--- Case 8: a second copy with every 12th base changed ---")
+    # Any 18-24 bases in a row cover 1 or 2 changed bases (one in every 12),
+    # so every primer matches the copy with at most 2 mismatches:
+    # off-target at allowance 2. At allowance 0 the copy never counts.
+    near_copy = "".join(SHIFT[b] if i % 12 == 0 else b for i, b in enumerate(TARGET))
     genome = basic_genome(TARGET) + near_copy
     at_2 = design_primers(genome, TARGET, 2)
-    at_1 = design_primers(genome, TARGET, 1)
+    at_0 = design_primers(genome, TARGET, 0)
     check(at_2["designs"] == [], "allowance 2: no design (every primer also binds the copy)")
-    check(len(at_1["designs"]) == 3, "allowance 1: 3 designs (the copy is 2 mismatches away)")
-    check(all(check_design(d, genome, 2000, 2400, 1) for d in at_1["designs"]),
-          "allowance 1 designs follow every rule, and run_model agrees")
+    check(len(at_0["designs"]) == 3, "allowance 0: 3 designs (the copy is 1-2 mismatches away)")
+    check(all(check_design(d, genome, 2000, 2400, 0) for d in at_0["designs"]),
+          "allowance 0 designs follow every rule, and run_model agrees")
 
 
 # =============================================================================
@@ -218,11 +226,41 @@ def case_target_gc_medium():
     target = random_bases(TARGET_LENGTH, seed=11, gc=0.65)
     result = design_primers(basic_genome(target), target, 2)
     check(0.60 < gc_fraction(target) <= 0.70, f"target GC {gc_fraction(target):.1%} is medium")
-    check(any("target GC content" in w for w in result["warnings"]), "target warning given")
+    check(any("(medium" in w for w in result["warnings"]), "medium target warning given")
     check(len(result["designs"]) > 0, f"{len(result['designs'])} designs still returned")
-    flagged = sum(len(d["medium_gc"]) for d in result["designs"])
-    check(sum(w.startswith("design ") for w in result["warnings"]) == flagged,
-          f"one warning per medium-GC oligo ({flagged})")
+
+
+def case_target_gc_low():
+    print("\n--- Case 12: target about 33 % GC ---")
+    target = random_bases(TARGET_LENGTH, seed=12, gc=0.33)
+    result = design_primers(basic_genome(target), target, 2)
+    check(gc_fraction(target) < 0.40, f"target GC {gc_fraction(target):.1%} is low")
+    check(any("(low" in w for w in result["warnings"]), "low target warning, not an error")
+    check(len(result["designs"]) > 0, f"{len(result['designs'])} designs still returned")
+
+
+def case_no_gc_window():
+    print("\n--- Case 13: target with no stretch at 40-60 % GC ---")
+    # ATTA repeated: 0 % GC everywhere, so no primer can be chosen
+    target = "ATTA" * 50
+    result = design_primers(basic_genome(target), target, 2)
+    check(result["possible"] == 0 and result["designs"] == [], "no possible design")
+    check(any("40-60 % GC" in w for w in result["warnings"]), "the warning says GC is why")
+
+
+def case_product_length():
+    print("\n--- Case 14: the user chooses the product length ---")
+    at_70 = design_primers(GENOME, TARGET, 2, 70)
+    check(product_range(70) == (54, 120), "70 bp: designs from 54 to 120 bp")
+    check(all(check_design(d, GENOME, 2000, 2400, 2, 70) for d in at_70["designs"]),
+          f"70 bp: every design follows every rule {[d['product_length'] for d in at_70['designs']]}")
+    check(at_70["designs"][0]["product_length"] == 70, "70 bp: the best design is 70 bp")
+    check(at_70["warnings"] == [], "70 bp: no warning (inside 60-150)")
+    at_300 = design_primers(GENOME, TARGET, 2, 300)
+    check(product_range(300) == (250, 350), "300 bp: designs from 250 to 350 bp")
+    check(all(check_design(d, GENOME, 2000, 2400, 2, 300) for d in at_300["designs"]),
+          f"300 bp: every design follows every rule {[d['product_length'] for d in at_300['designs']]}")
+    check(any("outside 60-150" in w for w in at_300["warnings"]), "300 bp: qPCR warning given")
 
 
 # =============================================================================
@@ -230,12 +268,13 @@ def case_target_gc_medium():
 # =============================================================================
 
 def case_bad_input():
-    print("\n--- Case 12: bad input ---")
-    check_errors(GENOME, random_bases(TARGET_LENGTH, seed=12, gc=0.45), 2,
+    print("\n--- Case 15: bad input ---")
+    check_errors(GENOME, random_bases(TARGET_LENGTH, seed=14, gc=0.45), 2,
                  "not in the genome", "target not in the genome")
     check_errors(GENOME, TARGET, 3, "0 to 2", "allowance 3 is too high")
     check_errors(GENOME, TARGET, -1, "0 to 2", "allowance -1 is too low")
-    check_errors(GENOME, TARGET[:59], 2, "at least 60", "a 59-base target is too short")
+    check_errors(GENOME, TARGET, 2, "at least 54", "product length 53 is too short", ideal_product=53)
+    check_errors(GENOME, TARGET[:99], 2, "shorter than", "a 99-base target cannot hold a 100 bp product")
 
 
 # =============================================================================
@@ -244,7 +283,7 @@ def case_bad_input():
 
 if __name__ == "__main__":
     case_basic()
-    case_hand_solved_first_design()
+    case_ranking()
     case_target_minus_strand()
     case_fasta_input()
     case_n_in_target()
@@ -254,5 +293,8 @@ if __name__ == "__main__":
     case_target_gc_too_high()
     case_gc_checked_first()
     case_target_gc_medium()
+    case_target_gc_low()
+    case_no_gc_window()
+    case_product_length()
     case_bad_input()
     print("\nAll cases passed.")

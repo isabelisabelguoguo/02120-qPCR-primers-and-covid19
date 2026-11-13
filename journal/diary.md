@@ -404,7 +404,7 @@ session logs)
 
 ## Log 11 · 2026-11-13 · Primer design from the first model
 
-**Commit:** filled in at the next update
+**Commit:** `19b27c0`
 
 ### What I did
 - Started on a website idea: paste a genome, a target gene and a mismatch
@@ -458,6 +458,44 @@ session logs)
 
 ---
 
+## Log 12 · 2026-11-13 · Primer design: lengths, the 40-60% GC rule, ranking
+
+**Commit:** filled in at the next update
+
+### What I did
+- Gave primers a length range instead of always 20 bases: primers 18-24,
+  probes 18-30. 18 is the shortest, because the first model needs each
+  primer to split into three 6-base seeds when 2 mismatches are allowed
+  **(#53)**.
+- A range on its own gives too many choices: every position would have 7
+  primer lengths and 13 probe lengths, so millions of designs and nothing to
+  pick between them. So each position gets ONE length, the one whose GC is
+  closest to 50% (the shorter one on a tie). The number of designs stays
+  about the same as before **(#53)**.
+- Learned that keeping G and C between 40% and 60% gives stable hydrogen
+  bonding. Every primer and probe must now be 40-60% GC. The target gene is
+  still checked first: above 70% stops with an error, 60-70% gives a
+  warning, and now below 40% gives a warning too. That is only a warning,
+  because the whole SARS-CoV-2 genome is about 38% GC. If no stretch of the
+  target reaches 40-60%, the output says GC is why **(#54)**.
+- When there is more than one design, they come out best match first. Since
+  every design is copied from the target, "best match" means closest to the
+  ideal: GC of each oligo closest to 50%, and product closest to the chosen
+  length. 1 point = 1% GC on one oligo = 10 bp of product **(#55)**.
+- The product length is now an input: 100 bp unless the user picks another.
+  Designs are made within 50 bp of it. Below 54 bp is an error (no room for
+  three 18-base oligos), and outside 60-150 bp gives a warning, because
+  that's where qPCR works best **(#56)**.
+- Updated the tests: 15 cases, all passing. New ones check the ranking by
+  hand, an AT-rich target, a target with no 40-60% stretch at all, and a
+  user-chosen product length **(#57)**.
+- The CDC primers all fit the 40-60% rule (40.0-58.3%). The designer still
+  picks other positions, but it came close on N2: its reverse primer is the
+  CDC one plus two extra bases. At 70 bp the products are the right size,
+  but many designs score a perfect 0, and the earliest one wins **(#57)**.
+
+---
+
 ## Where things stand
 Still open (details at the end of `modification documentation.md`): a few
 search limits, one genome per variant, and no real Alpha genome yet (#42).
@@ -465,7 +503,7 @@ Factor 2 (annealing temperature) has a first version (Log 9). Next: Tm for
 indel sites, the CDC's real concentrations, and turning the probe's weaker
 binding into an expected Ct delay.
 
-Primer design (Log 11) works on fake genomes and passes the CDC primers, but
-does not reproduce them yet. Next: allow 18-24-base primers, aim for about
-70 bp products, and report where the published design ranks. Then the
-website.
+Primer design (Logs 11-12) works on fake genomes: 18-24-base primers,
+40-60% GC, best match first, and a product length the user can choose. The
+CDC primers pass its rules but are not reproduced yet. Next: report where
+each published design ranks, then the website.

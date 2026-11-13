@@ -1,16 +1,16 @@
-TEST CASES: PRIMER DESIGN (version 1)
+TEST CASES: PRIMER DESIGN (version 2)
 ======================================
 Designer: journal/primer_design.py
 Tests:    journal/test_primer_design.py
-Run:      python3 journal/test_primer_design.py   (12 cases, about 4 s)
+Run:      python3 journal/test_primer_design.py   (15 cases)
 Real-data check: CDC N1/N2/N3 (see the end of this file)
 
-The designer takes a genome, a target gene inside it and a mismatch
-allowance (0-2), and returns up to 3 designs: a 20-base forward primer, a
-20-base reverse primer and a 24-base probe. It uses only what the first model
-uses (sequence, mismatch allowance, binding sites on both strands, product
-length, probe inside the product), plus GC content. No melting or annealing
-temperature.
+The designer takes a genome, a target gene inside it, a mismatch allowance
+(0-2) and a product length (default 100 bp), and returns up to 3 designs: a
+forward primer, a reverse primer and a probe. It uses only what the first
+model uses (sequence, mismatch allowance, binding sites on both strands,
+product length, probe inside the product), plus GC content. No melting or
+annealing temperature.
 
 Fake genome (the same every run: seeded random bases):
   2,000 random bases (seed 1, 50 % GC)
@@ -22,86 +22,91 @@ Fake genome (the same every run: seeded random bases):
 Rules every returned design must follow (checked for every design):
   - forward = the genome window; reverse = reverse complement of its window;
     probe = the genome window
-  - primers 20 bases, probe 24 bases, all inside the target
+  - primers 18-24 bases, probe 18-30 bases, all inside the target
+  - each oligo's length = the one with GC closest to 50 % (shorter on a tie)
+  - every primer and probe 40-60 % GC
   - probe between the primers, overlapping neither
-  - product 60-150 bp
-  - no oligo above 70 % GC
+  - product within +/- 50 bp of the chosen length (never below 54 bp)
   - independent check: run_model (first model) on the whole genome with the
     designed oligos finds exactly ONE product, status "product", at the
     designed place
 
-Ranking: fewest medium-GC oligos, then product closest to 100 bp, then
-earliest start. Each later design's product must not overlap an earlier one.
+Ranking, best match first:
+  penalty = |forward GC - 50| + |reverse GC - 50| + |probe GC - 50|
+            (percentage points)  +  |product - chosen length| / 10
+  Lower is better; ties go to the earlier start. Each later design's product
+  must not overlap an earlier one.
 
-GC bands (target and each oligo):
-  ok        up to 60 %
-  medium    above 60 %, up to 70 %   -> warning; oligo still usable
-  too high  above 70 %               -> target: error, stops before the search
-                                        oligo: never used
+Target GC (checked first, before anything else runs):
+  above 70 %   error with the reason; the design stops
+  60-70 %      warning (medium)
+  below 40 %   warning (low); SARS-CoV-2 as a whole is about 38 % GC
+  40-60 %      no message
 
 Positions below are 1-based (genome position 1 = first base).
+"pen" = match penalty.
 
 
 CASES THAT SHOULD GIVE DESIGNS
 ------------------------------
 
 Case 1 - Basic: 400-base target in a 4,400-base genome
-  Allowance: 2
-  Outcome:  target found at 2001-2400, + strand; 3 designs, no warnings
-    Design 1  F 5'-GCATGCTGGTAGGTTTCAAC-3'      2001-2020
-              R 5'-CATAGTACGGAGAATACCCA-3'      binds 2081-2100
-              P 5'-CTAGGTCGTGTCATGTTATGCTTA-3'  2039-2062
-              product 2001-2100, 100 bp
-    Design 2  F 5'-GTAACGTGCTAGGCAATCCC-3'      2101-2120
-              R 5'-ATTTATTTGTGGTGAAAAGC-3'      binds 2181-2200
-              P 5'-CTCACAAGTTGTTAAAAATGGGTA-3'  2139-2162
-              product 2101-2200, 100 bp
-    Design 3  F 5'-TGCGCTCTCCATCCCCCTTT-3'      2204-2223
-              R 5'-CTTCTGGTTGGAGAGGATAC-3'      binds 2284-2303
-              P 5'-CTGGGAGTAAAAATATTCTTGAGT-3'  2242-2265
-              product 2204-2303, 100 bp
+  Allowance 2, product 100 bp (designs from 54 to 150 bp)
+  Outcome:  target found at 2001-2400, + strand; 13,240 possible designs,
+            3 checked, 3 kept, no warnings
+    Design 1  F 5'-TGGCAGCTAGGTCGTGTCATGTTA-3'      2033-2056  24 nt, 50 %
+              R 5'-CACAGGATCCTTGGGATT-3'            2115-2132  18 nt, 50 %
+              P 5'-ACAGGTGGGTATTCTCCGTA-3'          2076-2095  20 nt
+              product 2033-2132, 100 bp, pen 0.0
+    Design 2  F 5'-TGTATCCTCTCCAACCAG-3'            2283-2300  18 nt, 50 %
+              R 5'-CTCATCTCTAAGACGGTC-3'            2365-2382  18 nt, 50 %
+              P 5'-CTGAAGGATCCACCCCTCTTTCGTAGAA-3'  2319-2346  28 nt
+              product 2283-2382, 100 bp, pen 0.0
+    Design 3  F 5'-CCACTAGCTTTTCACCAC-3'            2175-2192  18 nt, 50 %
+              R 5'-GAACTCTGGCACTCAAGA-3'            2258-2275  18 nt, 50 %
+              P 5'-CCCCCTTTCATCAACGTA-3'            2216-2233  18 nt
+              product 2175-2275, 101 bp, pen 0.1
   Meaning:  Every rule holds and the first model agrees each design gives
-            only one product. The 3 products do not overlap. (Design 3
-            starts at 2204, not 2201: the windows starting 2201-2203 were
-            not unique or not usable.)
+            only one product. The products do not overlap. Design 2 comes
+            before design 3 because its penalty is lower, even though it
+            starts later.
 
-Case 2 - The first design, worked out by hand
-  Allowance: 2
-  Worked:   Best = product closest to 100 bp, then earliest start, so the
-            forward primer starts at the target's first base, 2001.
-            Product 2001-2100 -> reverse window 2081-2100.
-            Gap between primers = 2021-2080 (60 bases).
-            Probe (24) centred: 2021 + (60 - 24) // 2 = 2039 -> 2039-2062.
-  Outcome:  forward 2001, reverse 2081-2100, probe 2039, product 100 bp
-  Meaning:  The ranking and probe placement do what the code says.
+Case 2 - Ranking, best match first (worked out by hand)
+  Hand example: forward 9/20 G = 45 % -> 5 points
+                reverse 10/20 G = 50 % -> 0
+                probe 11/20 G = 55 % -> 5
+                product 80 bp -> |80 - 100| / 10 = 2
+                penalty = 5 + 0 + 5 + 2 = 12
+  All three 50 %, 100 bp -> penalty 0.
+  Real run: design 1's forward TGGCAGCTAGGTCGTGTCATGTTA has 12 G/C of 24
+            = 50 %; all three oligos 50 %, 100 bp -> penalty 0, the best
+            possible. Penalties come out in order: 0.0, 0.0, 0.1.
 
 Case 3 - Target given as its reverse complement
-  Allowance: 2
-  Outcome:  target found on the - strand at 2001-2400; same 3 designs as
-            Case 1
+  Outcome:  target found on the - strand at 2001-2400; same designs as Case 1
   Meaning:  A gene can be pasted from either strand.
 
 Case 4 - Genome and target pasted as FASTA, lowercase, 60 bases per line
-  Allowance: 2
-  Outcome:  same 3 designs as Case 1
+  Outcome:  same designs as Case 1
   Meaning:  ">" header lines, line breaks and lowercase letters are cleaned
             away before the search.
 
-Case 5 - 30 N bases in the middle of the target (target 181-210 = N)
-  Allowance: 2
-  Outcome:  3 designs, products 2001-2100, 2219-2318, 2101-2180;
+Case 5 - 30 N bases in the middle of the target (genome 2181-2210 = N)
+  Outcome:  9,066 possible designs; 3 designs: products 2033-2132 (pen 0.0),
+            2283-2382 (pen 0.0), 2158-2249 (92 bp, pen 7.94);
             no primer or probe contains N
   Meaning:  Missing data is never put into an oligo (the first model would
-            call such a site "not assessable"). Design 3 is shorter (80 bp)
-            because the N block cuts into the space after 2180.
+            call such a site "not assessable"). Design 3's product spans the
+            N block, but its primers and probe sit on known bases on either
+            side.
 
 Case 6 - A 40-base all-G/C stretch inside an ordinary target
-  (target 101-140 replaced by random G/C, genome 2101-2140)
-  Allowance: 2
-  Outcome:  target GC 50.5 % (ok overall); 3 designs, products 2001-2100,
-            2133-2232, 2233-2332; the highest oligo GC is 60 %
-  Meaning:  A GC-rich patch is skipped even when the target as a whole is
-            fine: no oligo above 70 % GC is used.
+  (genome 2101-2140 replaced by random G/C)
+  Outcome:  target GC 50.5 %; 3 designs: products 2283-2382, 2175-2275,
+            2001-2102; every oligo 40-60 % GC
+  Meaning:  The G/C stretch is skipped even when the target as a whole is
+            fine. Case 1's design 1 (2033-2132) is gone because the stretch
+            falls inside it and there is no 40-60 % probe left there.
 
 
 SPECIFICITY (the first model's job)
@@ -109,16 +114,15 @@ SPECIFICITY (the first model's job)
 
 Case 7 - The target appears twice in the genome
   (genome = Case 1 genome + a second exact copy of the target at the end)
-  Allowance: 2
-  Outcome:  no design; all 25,578 possible designs checked, every one fails
+  Outcome:  no design; all 13,240 possible designs checked, every one fails
   Meaning:  Every primer binds both copies, so no design is specific.
 
-Case 8 - A second copy with every 10th base changed (A->C, C->G, G->T, T->A)
-  Worked:   Any 20 bases in a row cover exactly 2 changed bases (one in
-            every 10), so every primer matches the copy with 2 mismatches.
-  Allowance 2:  no design (every primer also binds the copy)
-  Allowance 1:  3 designs, products 2001-2100, 2101-2200, 2204-2303 (the
-                same as Case 1), all passing every rule
+Case 8 - A second copy with every 12th base changed (A->C, C->G, G->T, T->A)
+  Worked:   Any 18-24 bases in a row cover 1 or 2 changed bases (one in
+            every 12), so every primer matches the copy with at most 2
+            mismatches.
+  Allowance 2:  no design (all 13,240 checked; every primer binds the copy)
+  Allowance 0:  3 designs, the same as Case 1, all passing every rule
   Meaning:  The mismatch allowance decides what counts as an off-target
             site, exactly as in the first model.
 
@@ -126,7 +130,7 @@ Case 8 - A second copy with every 10th base changed (A->C, C->G, G->T, T->A)
 GC CONTENT
 ----------
 
-Case 9 - Target 80 % GC (400 random bases, seed 9)
+Case 9 - Target 80.0 % GC (400 random bases, seed 9)
   Outcome:  ERROR: the target's GC content is 80.0 %, above 70 %: primers
             here would bind too strongly, also at partly matching sites, and
             the GC-rich template folds on itself and copies poorly. Choose a
@@ -141,24 +145,56 @@ Case 11 - Target 65.5 % GC (seed 11)
   Outcome:  WARNING: target GC content is 65.5 % (medium, above 60 %):
             primers may bind more strongly than intended; check the designs
             before ordering
-            3 designs still returned, products 2038-2137, 2310-2400,
-            2185-2256; none uses a medium-GC oligo, so no per-oligo
-            warnings
-  Meaning:  A medium target is a warning, not an error, and the ranking
-            picks ok-GC oligos when there are any.
-  Not yet tested: a design that has to use a medium-GC oligo (and gets its
-            own "design n: ... GC content is ... (medium)" warning).
+            2,589 possible designs; 3 returned, products 2039-2134 (pen
+            5.96), 2312-2399 (pen 6.76), 2184-2256 (pen 25.43)
+  Meaning:  A medium target is a warning, not an error. Fewer stretches
+            reach 40-60 %, so the penalties are higher than in Case 1.
+
+Case 12 - Target 28.0 % GC (seed 12)
+  Outcome:  WARNING: target GC content is 28.0 % (low, below 40 %): fewer
+            stretches reach 40-60 % GC, so there may be fewer designs
+            121 possible designs; 1 returned, product 2290-2366, 77 bp,
+            pen 11.39
+  Meaning:  An AT-rich target is a warning, not an error, and a design can
+            still be found inside it.
+
+Case 13 - Target with no stretch at 40-60 % GC ("ATTA" x 50, 0 % GC)
+  Outcome:  0 possible designs, no design; warnings:
+            target GC content is 0.0 % (low, ...)
+            no design: the target has no forward, reverse and probe
+            stretches with 40-60 % GC that fit together into a 54-150 bp
+            product
+  Meaning:  When nothing can be designed, the output says GC is why.
+
+
+PRODUCT LENGTH
+--------------
+
+Case 14 - The user chooses the product length
+  70 bp:   designs from 54 to 120 bp; 3 designs, products 2037-2106 (70 bp,
+           pen 0.0), 2258-2327 (70 bp, pen 0.0), 2175-2239 (65 bp, pen 0.5);
+           no warning
+  300 bp:  designs from 250 to 350 bp; 1 design (only one 300 bp product
+           fits in 400 bases without overlapping), product 2088-2387,
+           300 bp, pen 0.0
+           WARNING: a 300 bp product is outside 60-150 bp, where qPCR works
+           best
+  Meaning:  The chosen length moves both the allowed range and the ranking.
 
 
 BAD INPUT
 ---------
 
-Case 12 - Errors with a reason
+Case 15 - Errors with a reason
   Target not in the genome  -> the target gene is not in the genome
                                (checked both strands)
   Allowance 3               -> mismatch allowance must be 0 to 2
   Allowance -1              -> mismatch allowance must be 0 to 2
-  59-base target            -> the target must be at least 60 bases long
+  Product length 53         -> the product length must be at least 54 bp
+                               (room for an 18-base forward primer, probe
+                               and reverse primer)
+  99-base target, 100 bp    -> the target (99 bases) is shorter than the
+                               100 bp product asked for
 
 
 REAL DATA: CDC N1/N2/N3 ON THE REFERENCE GENOME (not in the test file yet)
@@ -177,15 +213,20 @@ REAL DATA: CDC N1/N2/N3 ON THE REFERENCE GENOME (not in the test file yet)
                                                               designer never
                                                               proposes
 
-  (b) Does the designer reproduce them?  No.
+  (b) Does the designer reproduce them?  Not yet.
 
+  Product length 100 (default):
+  N2  the designer's reverse primer is ATGCGCGACATTCCGAAGAA (29213-29232):
+      the CDC reverse primer GCGCGACATTCCGAAGAA plus 2 bases at its 5' end,
+      chosen because 20 bases is exactly 50 % GC.
+
+  Product length 70:
   Assay  Published                          Designer's first choice
-  N1     F 28287-28306, R 28335-28358, 72   F 28237-28256, R 28317-28336, 100
-  N2     F 29164-29183, R 29213-29230, 67   F 29118-29137, R 29198-29217, 100
-  N3     F 28681-28702, R 28732-28752, 72   F 28631-28650, R 28711-28730, 100
+  N1     F 28287-28306, R 28335-28358, 72   F 28275-28292, R 28327-28344, 70
+  N2     F 29164-29183, R 29213-29230, 67   F 29180-29203, R 29232-29249, 70
+  N3     F 28681-28702, R 28732-28752, 72   F 28631-28650, R 28681-28700, 70
 
-  Why: the designer only makes 20-base primers and 24-base probes (the CDC
-  used 18-24 and 23-24), and it prefers 100 bp products starting at the
-  target's first base (the CDC products are 67-72 bp). Its designs also pass
-  the specificity check: with only first-model information, many designs
-  are equally good.
+  Why: many designs score a perfect 0 (every oligo exactly 50 % GC, exactly
+  the chosen length), and the earliest one wins the tie. The CDC oligos are
+  40-58 % GC, so they score a little worse. With only GC and length to go
+  on, the designer has no reason to prefer the CDC positions.

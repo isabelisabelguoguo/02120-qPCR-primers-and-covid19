@@ -557,7 +557,7 @@ Also added to the diary: the NHGRI primer diagram
 
 ## Log 11 · 2026-11-13 · Primer design from the first model
 
-**Commit:** filled in at the next update
+**Commit:** `19b27c0`
 
 **#47. Problem:** the models only check existing primers. For the planned
 website, a user should be able to give a genome, a target gene and a
@@ -633,6 +633,65 @@ The first run failed in Case 11: the test counted warnings containing
 
 ---
 
+## Log 12 · 2026-11-13 · Primer design: lengths, the 40-60% GC rule, ranking
+
+**Commit:** filled in at the next update
+
+**#53. Problem:** every primer was 20 bases and every probe 24, so most CDC
+oligos (18-24 / 23-24) could not even be among the options. A length range
+alone would give 7 x 13 length combinations per position and millions of
+designs, with nothing to choose between them.
+**Fix:** `PRIMER_LENGTH` = (18, 24), `PROBE_LENGTH` = (18, 30). 18 is the
+minimum for allowance 2 with k = 6 (18 // 3 = 6; #15, #40). `choose_length`
+gives each anchor one window: the usable length with GC closest to
+`IDEAL_GC` = 0.5, the shorter on a tie (strict `<` while lengths grow).
+Forward primers and probes are anchored at their 5' end and grow right;
+reverse primers are anchored at their 5' end, which is the window's right
+end, and grow left (`all_windows`). `centred_probe` picks the probe whose
+middle is closest to the middle of the gap. N gene: about 100,000 designs,
+as before; the demo takes about 2 s.
+
+**#54. Problem:** oligos were only limited from above (<= 70% GC), and
+60-70% oligos were used with a warning. Stable binding needs 40-60%.
+**Fix:** `OLIGO_GC` = (0.40, 0.60); `usable` now requires it, so the
+per-oligo medium flag (`medium_gc`) was removed. Target bands in
+`gc_level`/`check_target_gc`: > 70% error, > 60% "medium" warning, < 40%
+(`TARGET_GC_LOW_BELOW`) "low" warning only, since SARS-CoV-2 is ~38% GC.
+If `possible_designs` returns nothing, a warning says no 40-60% GC
+stretches fit together into a product.
+
+**#55. Problem:** with more than one design, the order was only product
+length then position.
+**Fix:** Section 3b, `match_penalty` = sum over forward, reverse and probe of
+|GC% - 50| + |product - ideal| / 10; designs sorted by (penalty, start).
+Each design prints its penalty. There is no "flagged" second key yet: with
+every oligo at 40-60%, no single design carries a flag; target warnings
+apply to all designs equally.
+
+**#56. Problem:** the product length was fixed at 60-150 bp around 100.
+**Fix:** `design_primers(..., ideal_product=100)` and a 4th command-line
+argument. `product_range` = (max(`MIN_PRODUCT` = 54, ideal - 50), ideal +
+50), so the default range is 54-150. Errors: below 54 bp, or longer than the
+target. Warning outside `QPCR_PRODUCT` = 60-150 bp. `specific` passes
+`max_length=max(1000, product)` to `run_model`, so products over 1000 bp are
+still seen. Tried on the N gene: 70, 300 and 1000 bp give designs of
+exactly that length in 1-3 s.
+
+**#57. Tests and CDC result.** `test_primer_design.py` now has 15 cases (all
+pass). Changed: length checks use the ranges; Case 2 is the ranking (hand
+example 5 + 0 + 5 + 2 = 12, and penalties in order); Case 8's near copy
+changes every 12th base, since an 18-base primer could cover only one change
+in every 10th; Case 6 checks 40-60%. New: Case 12 (28% GC target: low
+warning, 1 design), Case 13 (`ATTA` x 50: no design, GC named as the
+reason), Case 14 (product 70 and 300 bp). `test_cases_primer_design.txt`
+rewritten as version 2 with every case's real output.
+CDC N1/N2/N3: all oligos pass the rules (40.0-58.3% GC). At 100 bp the N2
+reverse primer chosen is `ATGCGCGACATTCCGAAGAA`, the CDC reverse plus 2 bases
+at its 5' end. At 70 bp the products are 70 bp but at other positions:
+many designs score 0, and the earliest wins the tie.
+
+---
+
 ## Still open (known limits after version 4)
 - Near-miss and small-gap searches need an exact 6-base stretch (#15, #40).
 - Near-miss limits (#16, #17) were tuned on random sequence, not real genomes
@@ -655,17 +714,16 @@ The first run failed in Case 11: the test counted warnings containing
 - Tm uses 250 nM for every oligo (the Primer3 reference); CDC uses 500 nM
   primers and 125 nM probe (about 1 C difference).
 - Hairpins and primer dimers are not modelled.
-- Primer design (#47-#52): fixed 20-base primers and 24-base probes; ranks
-  only by medium-GC count, product length and position, so it does not
-  reproduce the CDC designs; no low-GC limit; no test yet where a design
-  must use a medium-GC oligo; RNase P not checked (needs the human RPP30
-  segment from NCBI).
+- Primer design (#47-#57): ranks only by GC and product length, so many
+  designs tie at a perfect 0 and the earliest wins; it does not reproduce
+  the CDC designs; never proposes degenerate bases (CDC N3 probe has a Y);
+  no hairpin or primer-dimer check; RNase P not checked (needs the human
+  RPP30 segment from NCBI).
 
 ## Planned (not built yet)
-- **Primer design, next:** allow 18-24-base primers and 20-30-base probes,
-  set `IDEAL_PRODUCT` near 70 bp, report the published design's rank among
-  the designer's options, move the CDC check into `journal/`, then the
-  website (genome box, target box, allowance box).
+- **Primer design, next:** report each published design's rank among the
+  designer's options, move the CDC check into `journal/`, then the website
+  (genome box, target box, allowance box, product length box).
 Factor 2's basic plan (nearest-neighbor Tm, Primer3's salt correction,
 mismatch parameters, comparison with the 55 C annealing step, fraction
 bound) was built in Log 9 (#43-#45). Still to do for it:
