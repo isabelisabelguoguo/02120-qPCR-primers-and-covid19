@@ -460,8 +460,7 @@ session logs)
 
 ## Log 12 · 2026-11-13 · Primer design: lengths, the 40-60% GC rule, ranking
 
-**Commits:** `3f629ea`, then `troubleshooting.txt` (#58, filled in at the
-next update)
+**Commits:** `3f629ea`, then `24f6899` (`troubleshooting.txt`, #58)
 
 ### What I did
 - Gave primers a length range instead of always 20 bases: primers 18-24,
@@ -498,6 +497,18 @@ next update)
   two parts (the first model, then primer design), each with the functions
   it changed. It's a quick way to review everything before a check-in
   **(#58)**.
+
+### Things to work on for next time
+- Try the website (`website/index.html`) in the browser and decide what to
+  change; then commit it with `check_website_port.py` and write Log 13.
+- Report where each CDC design ranks among the designer's options (#52).
+- Decide whether a single design should ever be flagged (for example a
+  look-alike site 1 mismatch beyond the allowance), as the second ranking
+  key (#55).
+- Move the CDC published-primer check into `journal/`, and add RNase P once
+  the human RPP30 segment is downloaded from NCBI.
+- Make `primer_design.py` give a clear error for non-DNA letters, like the
+  website does, instead of crashing.
 
 ---
 

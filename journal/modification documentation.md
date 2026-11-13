@@ -636,8 +636,7 @@ The first run failed in Case 11: the test counted warnings containing
 
 ## Log 12 · 2026-11-13 · Primer design: lengths, the 40-60% GC rule, ranking
 
-**Commits:** `3f629ea`, then `troubleshooting.txt` (#58, filled in at the
-next update)
+**Commits:** `3f629ea`, then `24f6899` (`troubleshooting.txt`, #58)
 
 **#53. Problem:** every primer was 20 bases and every probe 24, so most CDC
 oligos (18-24 / 23-24) could not even be among the options. A length range
