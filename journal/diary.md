@@ -520,6 +520,49 @@ session logs)
 
 ---
 
+## Log 13 · 2026-11-13 · The website, and product length as a range
+
+**Commit:** filled in at the next update
+
+### What I did
+- Built the first website: paste a genome and a target gene, pick the
+  mismatch allowance and product length, and get primers and a probe back,
+  best match first. Each design shows a small map of where the forward
+  primer, probe and reverse primer sit in the product **(#59)**.
+- A browser can't run Python, so the designer (and the parts of the first
+  model it uses) was translated into JavaScript. To make sure the
+  translation is right, `check_website_port.py` runs the Python and the
+  JavaScript on the same inputs: all 35 checks give exactly the same
+  primers, positions and warnings **(#59)**.
+- I couldn't copy long sequences out of the terminal, so the website got
+  buttons that load each test case and run it. I also wrote
+  `test_cases_web_specificity.txt`: 5 cases that cover good, low, high-but-ok
+  and too-high GC, and a second copy of the target that matches perfectly,
+  with 2 mismatches or fewer, or with more than 2 **(#60)**.
+- Testing the website, I saw the product length should be a range, not one
+  number. Now it's a shortest and a longest (default 60-150 bp), designs
+  stay inside it, and shorter products rank higher because they amplify
+  best in qPCR. With this, the N gene's best design (28275-28334) sits right
+  next to the CDC N1 assay (28287-28358) **(#61)**.
+
+### Things to work on for next time
+- **Compare with NCBI:** BLAST our designed primers (and the CDC ones)
+  against NCBI's databases to see where else they match (other viruses, the
+  human genome), and compare that with our first model's one-site check.
+  Also run NCBI Primer-BLAST on the N gene with the same settings and
+  compare its primers with ours.
+- **Main goal:** finish the second model (Tm and the annealing temperature):
+  Tm for indel and side-by-side mismatch sites (#44), the CDC's real
+  concentrations, and the probe's Ct delay (#45). Then add it to the
+  website (Tm and how much of each oligo is bound at 55 C).
+- Report where each CDC design ranks among the designer's options (#52).
+- Move the CDC published-primer check into `journal/`, and add RNase P once
+  the human RPP30 segment is downloaded from NCBI.
+- Make `primer_design.py` give a clear error for non-DNA letters, like the
+  website does, instead of crashing.
+
+---
+
 ## Where things stand
 Still open (details at the end of `modification documentation.md`): a few
 search limits, one genome per variant, and no real Alpha genome yet (#42).
@@ -529,5 +572,6 @@ binding into an expected Ct delay.
 
 Primer design (Logs 11-12) works on fake genomes: 18-24-base primers,
 40-60% GC, best match first, and a product length the user can choose. The
-CDC primers pass its rules but are not reproduced yet. Next: report where
-each published design ranks, then the website.
+CDC primers pass its rules but are not reproduced yet. The website (Log 13)
+runs the same designer in the browser, checked against the Python. Next:
+compare with NCBI BLAST and Primer-BLAST, and finish the second model.

@@ -2,7 +2,8 @@ TROUBLESHOOTING
 ===============
 One line per problem overcome, in two parts:
   PART 1  first_model_factor_specificity.py  (#1-#46)
-  PART 2  primer_design.py                   (#47-#57)
+  PART 2  primer_design.py                   (#47-#57, #61)
+  PART 3  the website (website/)             (#59-#60)
 Numbers match modification documentation.md, which has the full details.
 
 "Functions:" lists the functions each fix changed or is directly about.
@@ -169,6 +170,13 @@ LENGTHS AND PRODUCT
       Functions: product_range, possible_designs, design_primers, specific,
                  print_designs
 
+- #61 The product length was one number (+/- 50 bp) -> it is a range
+      (default 60-150 bp); designs stay inside it and shorter products rank
+      higher; errors for a range below 54 bp, backwards, or longer than the
+      target.
+      Functions: design_primers, possible_designs, match_penalty,
+                 print_designs (product_range removed)
+
 RANKING
 - #55 With more than one design, the order was only length and position ->
       best match first: GC of each oligo closest to 50% and product closest
@@ -192,3 +200,25 @@ TESTING AND REAL DATA
       primer was nearly matched, but they are still not reproduced: many
       designs score a perfect 0 and the earliest one wins. NOT YET OVERCOME.
       Functions: none changed (a finding)
+
+
+PART 3: THE WEBSITE (website/)
+==============================
+Functions are in website/primer_design.js unless another file is named.
+
+- #59 A browser cannot run Python -> the designer and the first-model parts
+      it uses were translated to JavaScript, function by function, and
+      check_website_port.py shows both give identical results (35 of 35).
+      Functions: designPrimers and every function it calls (each names its
+                 Python original); checkLetters (new: error for non-DNA
+                 letters); run_javascript, run_python
+                 (journal/check_website_port.py)
+- #60 Long sequences could not be copied from the terminal -> buttons on
+      the page load each test case and run it; the cases are also written
+      out in test_cases_web_specificity.txt.
+      Functions: loadExample, run, wrapFasta (website/index.html);
+                 web_cases (journal/check_website_port.py)
+
+(Not listed: the save_journal.py stdin hang, a process problem, not the
+model; see Log 13 in modification documentation.md.)
+

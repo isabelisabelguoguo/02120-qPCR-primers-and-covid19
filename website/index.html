@@ -1,0 +1,458 @@
+<title>qPCR Primer Designer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap">
+<style>
+/* Layout: one narrow lab-notebook column; a form card, then ranked design cards
+   with an amplicon map. Strand colors: forward, probe, reverse. */
+:root {
+  --bg: #f6f7f5;
+  --surface: #ffffff;
+  --ink: #1b211e;
+  --muted: #5c6862;
+  --line: #d9dfdb;
+  --accent: #1f6f5c;
+  --accent-ink: #ffffff;
+  --fwd: #2b6cb0;
+  --probe: #b7791f;
+  --rev: #9b2c5a;
+  --warn-bg: #fdf5e3;
+  --warn-ink: #7a4e05;
+  --err-bg: #fbe9ec;
+  --err-ink: #8c1d33;
+  --ok: #2f7d4f;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-head: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121614; --surface: #1a201d; --ink: #e4e9e6; --muted: #9aa7a0; --line: #2d3532;
+    --accent: #4fb396; --accent-ink: #0d1411; --fwd: #6ea8e8; --probe: #e0ad55; --rev: #e07ba5;
+    --warn-bg: #2e2513; --warn-ink: #f0c873; --err-bg: #331a20; --err-ink: #f2a3b3; --ok: #6cc597;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121614; --surface: #1a201d; --ink: #e4e9e6; --muted: #9aa7a0; --line: #2d3532;
+  --accent: #4fb396; --accent-ink: #0d1411; --fwd: #6ea8e8; --probe: #e0ad55; --rev: #e07ba5;
+  --warn-bg: #2e2513; --warn-ink: #f0c873; --err-bg: #331a20; --err-ink: #f2a3b3; --ok: #6cc597;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body);
+  font-size: 15px; line-height: 1.5;
+}
+.wrap {
+  max-width: 860px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+  display: grid; gap: 24px;
+}
+header { display: grid; gap: 6px; }
+.eyebrow {
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted);
+}
+h1 {
+  font-family: var(--font-head); font-weight: 600; font-size: 32px; line-height: 1.15;
+  margin: 0; text-wrap: balance;
+}
+.lede { margin: 0; color: var(--muted); max-width: 65ch; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  padding: 20px;
+}
+form { display: grid; gap: 18px; }
+.field { display: grid; gap: 6px; min-width: 0; }
+.label-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+label { font-weight: 600; font-size: 14px; }
+.hint { font-size: 13px; color: var(--muted); }
+textarea, input, select {
+  font: inherit; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; width: 100%;
+}
+textarea {
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.45; resize: vertical;
+  word-break: break-all;
+}
+#genome { min-height: 120px; }
+#target { min-height: 84px; }
+textarea:focus-visible, input:focus-visible, select:focus-visible, button:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+.range-row { display: flex; align-items: center; gap: 8px; }
+.range-row input { min-width: 0; }
+.counter { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+button {
+  font: inherit; font-weight: 600; font-size: 14px; border-radius: 6px; cursor: pointer;
+  padding: 9px 16px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button:disabled { opacity: 0.6; cursor: progress; }
+.btn {
+  font-weight: 600; font-size: 14px; border-radius: 6px; cursor: pointer; padding: 9px 16px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+}
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0; padding: 0;
+}
+.visually-hidden:focus-visible + .btn { outline: 2px solid var(--accent); outline-offset: 2px; }
+.examples { display: grid; gap: 6px; padding-top: 4px; }
+#example-buttons button { font-size: 13px; padding: 6px 12px; font-weight: 500; }
+.linklike {
+  background: none; border: none; padding: 0; color: var(--accent); font-weight: 500;
+  text-decoration: underline; text-underline-offset: 2px; font-size: 13px;
+}
+
+#status { font-size: 14px; color: var(--muted); }
+.notice { border-radius: 6px; padding: 10px 14px; font-size: 14px; }
+.notice.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.notice.err { background: var(--err-bg); color: var(--err-ink); }
+.notice strong { font-weight: 600; }
+#results { display: grid; gap: 16px; }
+.summary { font-size: 14px; color: var(--muted); display: grid; gap: 2px; }
+.summary b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.design { display: grid; gap: 14px; }
+.design-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
+.design-head h2 { font-family: var(--font-head); font-size: 20px; margin: 0; font-weight: 600; }
+.pill {
+  font-family: var(--font-mono); font-size: 12px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.pill.best { color: var(--ok); border-color: var(--ok); }
+
+.map { width: 100%; height: 56px; display: block; }
+.map text { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); }
+
+.oligo { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 4px 12px; align-items: baseline; }
+.oligo + .oligo { border-top: 1px dashed var(--line); padding-top: 12px; }
+.tag { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.dot { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+.seq {
+  font-family: var(--font-mono); font-size: 14px; overflow-wrap: anywhere; display: flex;
+  flex-wrap: wrap; gap: 6px 10px; align-items: baseline;
+}
+.seq code { font-family: inherit; }
+.end { color: var(--muted); }
+.meta { grid-column: 2; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.copy { font-size: 12px; padding: 2px 8px; font-weight: 500; }
+.product-line { font-size: 14px; font-variant-numeric: tabular-nums; }
+
+details { font-size: 14px; color: var(--muted); }
+details summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+details ul { padding-left: 18px; margin: 8px 0 0; display: grid; gap: 4px; }
+footer { font-size: 13px; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { button { transition: filter 0.15s; } button:hover { filter: brightness(1.06); } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">02-120 · qPCR primers and SARS-CoV-2</div>
+    <h1>qPCR Primer Designer</h1>
+    <p class="lede">Paste a genome and a target gene inside it. The designer suggests a forward
+      primer, a reverse primer and a probe, ranked best match first, and checks with the
+      specificity model that each design makes only one product in the whole genome.</p>
+  </header>
+
+  <section class="card">
+    <form id="form" novalidate>
+      <div class="field">
+        <div class="label-row">
+          <label for="genome">Genome</label>
+          <span class="counter" id="genome-count">0 bases</span>
+        </div>
+        <textarea id="genome" spellcheck="false" placeholder="Paste a genome, plain or FASTA (a SARS-CoV-2 genome is about 30,000 bases)"></textarea>
+        <div class="actions">
+          <input id="genome-file" class="visually-hidden" type="file" accept=".fasta,.fa,.fna,.txt">
+          <label for="genome-file" class="btn">Open FASTA file</label>
+        </div>
+        <div class="examples">
+          <span class="hint">Load an example (fills both boxes and runs):</span>
+          <div class="actions" id="example-buttons">
+            <button type="button" id="example">SARS-CoV-2 N gene</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label-row">
+          <label for="target">Target gene</label>
+          <span class="counter" id="target-count">0 bases</span>
+        </div>
+        <textarea id="target" spellcheck="false" placeholder="Paste the target gene's sequence; it must appear in the genome (either strand)"></textarea>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="allowance">Mismatch allowance</label>
+          <select id="allowance">
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+          </select>
+          <span class="hint">Off-target sites with this many mismatches or fewer count as binding. Capped at 2 so the search stays complete for 18-base primers.</span>
+        </div>
+        <div class="field">
+          <label for="product-min">Product length range (bp)</label>
+          <div class="range-row">
+            <input id="product-min" type="number" inputmode="numeric" min="54" step="1" value="60" aria-label="Shortest product (bp)">
+            <span class="hint">to</span>
+            <input id="product-max" type="number" inputmode="numeric" min="54" step="1" value="150" aria-label="Longest product (bp)">
+          </div>
+          <span class="hint">Designs are only made inside this range, and shorter products rank higher. qPCR works best at 60–150 bp.</span>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="primary" id="run">Suggest primers</button>
+        <span id="status" role="status"></span>
+      </div>
+    </form>
+  </section>
+
+  <section id="results" aria-live="polite"></section>
+
+  <details class="card">
+    <summary>How the designer chooses</summary>
+    <ul>
+      <li>Primers are 18–24 bases, the probe 18–30. At each position the length with GC closest to 50 % is used.</li>
+      <li>Every primer and probe must be 40–60 % GC. The target's GC is checked first: above 70 % stops the design, 60–70 % or below 40 % gives a warning.</li>
+      <li>The probe sits in the middle of the gap between the primers.</li>
+      <li>Ranking, best match first: penalty = the three oligos' distance from 50 % GC (percentage points) + (product length − shortest allowed) ÷ 10, so shorter products rank higher. Lower is better.</li>
+      <li>A design is kept only if each oligo binds exactly once in the whole genome and the first model finds exactly one product, with the probe inside it. Later designs do not overlap earlier ones.</li>
+      <li>Not considered: melting temperature, hairpins and primer dimers.</li>
+    </ul>
+  </details>
+
+  <footer>Positions are 1-based genome coordinates. The reverse primer is shown 3'→5' so it lines up under the genome; order it 5'→3' as listed.</footer>
+</div>
+
+<script src="example_data.js"></script>
+<script src="primer_design.js"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var genomeBox = $("genome"), targetBox = $("target");
+
+  function countBases(text) {
+    return PrimerDesign.cleanSequence(text).length;
+  }
+  function updateCounts() {
+    $("genome-count").textContent = countBases(genomeBox.value).toLocaleString() + " bases";
+    $("target-count").textContent = countBases(targetBox.value).toLocaleString() + " bases";
+  }
+  genomeBox.addEventListener("input", updateCounts);
+  targetBox.addEventListener("input", updateCounts);
+
+  function wrapFasta(name, seq) {
+    var lines = [">" + name];
+    for (var i = 0; i < seq.length; i += 70) lines.push(seq.slice(i, i + 70));
+    return lines.join("\n");
+  }
+
+  function loadExample() {
+    var ex = window.EXAMPLE;
+    genomeBox.value = wrapFasta(ex.genome_name, ex.genome);
+    targetBox.value = wrapFasta(ex.target_name, ex.genome.slice(ex.target_start - 1, ex.target_end));
+    updateCounts();
+  }
+  function run() {
+    $("form").requestSubmit ? $("form").requestSubmit() : $("form").dispatchEvent(new Event("submit"));
+  }
+  $("example").addEventListener("click", function () { loadExample(); run(); });
+  (window.TEST_EXAMPLES || []).forEach(function (test) {
+    var button = el("button", "", test.label);
+    button.type = "button";
+    button.addEventListener("click", function () {
+      genomeBox.value = wrapFasta(test.genome_name, test.genome);
+      targetBox.value = wrapFasta(test.target_name, test.target);
+      updateCounts();
+      run();
+    });
+    $("example-buttons").appendChild(button);
+  });
+
+  $("genome-file").addEventListener("change", function (event) {
+    var file = event.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () { genomeBox.value = reader.result; updateCounts(); };
+    reader.readAsText(file);
+  });
+
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function notice(kind, label, text) {
+    var box = el("div", "notice " + kind);
+    box.appendChild(el("strong", "", label + " "));
+    box.appendChild(document.createTextNode(text));
+    return box;
+  }
+
+  function copyButton(text) {
+    var button = el("button", "copy", "Copy");
+    button.type = "button";
+    button.setAttribute("aria-label", "Copy " + text);
+    button.addEventListener("click", function () {
+      var done = function () { button.textContent = "Copied"; setTimeout(function () { button.textContent = "Copy"; }, 1400); };
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(done, function () { selectText(button); });
+      } else { selectText(button); }
+    });
+    return button;
+  }
+  function selectText(button) {
+    var code = button.parentNode.querySelector("code");
+    var range = document.createRange();
+    range.selectNodeContents(code);
+    var sel = window.getSelection();
+    sel.removeAllRanges(); sel.addRange(range);
+  }
+
+  function gc(seq) { return PrimerDesign.gcPercent(seq); }
+
+  function oligoRow(name, color, shown, ends, meta, orderAs) {
+    var row = el("div", "oligo");
+    var tag = el("div", "tag");
+    var dot = el("span", "dot"); dot.style.background = color;
+    tag.appendChild(dot); tag.appendChild(document.createTextNode(name));
+    row.appendChild(tag);
+    var seq = el("div", "seq");
+    var line = el("span");
+    line.appendChild(el("span", "end", ends[0] + "-"));
+    line.appendChild(el("code", "", shown));
+    line.appendChild(el("span", "end", "-" + ends[1]));
+    seq.appendChild(line);
+    seq.appendChild(copyButton(orderAs || shown));
+    row.appendChild(seq);
+    meta.forEach(function (text) { row.appendChild(el("div", "meta", text)); });
+    return row;
+  }
+
+  function ampliconMap(d) {
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("class", "map");
+    svg.setAttribute("viewBox", "0 0 600 56");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "Map of the product: forward primer, probe and reverse primer positions");
+    var start = d.product_start, len = d.product_length;
+    var x = function (pos) { return 8 + (pos - start) / len * 584; };
+    function rect(a, b, y, h, color) {
+      var r = document.createElementNS(ns, "rect");
+      r.setAttribute("x", x(a)); r.setAttribute("width", Math.max(2, x(b) - x(a)));
+      r.setAttribute("y", y); r.setAttribute("height", h); r.setAttribute("rx", 2);
+      r.setAttribute("fill", color);
+      svg.appendChild(r);
+    }
+    var css = getComputedStyle(document.documentElement);
+    rect(start, d.product_end, 25, 2, css.getPropertyValue("--line"));
+    rect(d.forward.start, d.forward.end, 14, 9, css.getPropertyValue("--fwd"));
+    rect(d.probe.start, d.probe.end, 22, 8, css.getPropertyValue("--probe"));
+    rect(d.reverse.start, d.reverse.end, 29, 9, css.getPropertyValue("--rev"));
+    function label(textValue, pos, anchor) {
+      var t = document.createElementNS(ns, "text");
+      t.setAttribute("x", x(pos)); t.setAttribute("y", 52); t.setAttribute("text-anchor", anchor);
+      t.textContent = textValue;
+      svg.appendChild(t);
+    }
+    label((start + 1).toLocaleString(), start, "start");
+    label(d.product_length + " bp", start + len / 2, "middle");
+    label(d.product_end.toLocaleString(), d.product_end, "end");
+    return svg;
+  }
+
+  function designCard(d, number) {
+    var card = el("article", "card design");
+    var head = el("div", "design-head");
+    head.appendChild(el("h2", "", "Design " + number));
+    var pill = el("span", "pill" + (number === 1 ? " best" : ""), "penalty " + d.match_penalty.toFixed(2) + (number === 1 ? " · best match" : ""));
+    head.appendChild(pill);
+    card.appendChild(head);
+    card.appendChild(ampliconMap(d));
+
+    var css = getComputedStyle(document.documentElement);
+    var f = d.forward, r = d.reverse, p = d.probe;
+    card.appendChild(oligoRow("Forward", css.getPropertyValue("--fwd"), f.seq, ["5'", "3'"], [
+      "Binds " + (f.start + 1).toLocaleString() + "–" + f.end.toLocaleString() + ", starts at " + (f.start + 1).toLocaleString() + " · " + f.seq.length + " nt · GC " + gc(f.seq),
+    ]));
+    card.appendChild(oligoRow("Reverse", css.getPropertyValue("--rev"), r.seq.split("").reverse().join(""), ["3'", "5'"], [
+      "Binds " + (r.start + 1).toLocaleString() + "–" + r.end.toLocaleString() + ", 5' end at " + r.end.toLocaleString() + " · " + r.seq.length + " nt · GC " + gc(r.seq),
+      "Order as 5'-" + r.seq + "-3' (Copy gives this)",
+    ], r.seq));
+    card.appendChild(oligoRow("Probe", css.getPropertyValue("--probe"), p.seq, ["5'", "3'"], [
+      "Binds " + (p.start + 1).toLocaleString() + "–" + p.end.toLocaleString() + " · " + p.seq.length + " nt · GC " + gc(p.seq),
+    ]));
+    card.appendChild(el("div", "product-line",
+      "Product " + (d.product_start + 1).toLocaleString() + "–" + d.product_end.toLocaleString() +
+      ", " + d.product_length + " bp: the only product the specificity model finds in the whole genome."));
+    return card;
+  }
+
+  function render(result, allowance) {
+    var out = $("results");
+    out.textContent = "";
+    var t = result.target;
+    var range = result.product_range;
+    var summary = el("div", "summary");
+    var line1 = el("div");
+    line1.appendChild(document.createTextNode("Target found at "));
+    line1.appendChild(el("b", "", (t.start + 1).toLocaleString() + "–" + t.end.toLocaleString()));
+    line1.appendChild(document.createTextNode(" (" + t.strand + " strand, " + (t.end - t.start).toLocaleString() + " bases) in a " + result.genome_length.toLocaleString() + "-base genome."));
+    summary.appendChild(line1);
+    summary.appendChild(el("div", "", result.possible.toLocaleString() + " possible designs from " + range[0] + " to " + range[1] + " bp (shorter ranks higher); " + result.checked + " checked against the whole genome with mismatch allowance " + allowance + "."));
+    out.appendChild(summary);
+    result.warnings.forEach(function (w) { out.appendChild(notice("warn", "Warning:", w)); });
+    if (!result.designs.length) {
+      if (result.possible) out.appendChild(notice("err", "No design:", "every candidate also binds somewhere else in the genome within the mismatch allowance. Try a lower allowance or another target."));
+      return;
+    }
+    result.designs.forEach(function (d, i) { out.appendChild(designCard(d, i + 1)); });
+  }
+
+  $("form").addEventListener("submit", function (event) {
+    event.preventDefault();
+    var allowance = parseInt($("allowance").value, 10);
+    var shortest = Number($("product-min").value), longest = Number($("product-max").value);
+    var button = $("run");
+    button.disabled = true;
+    $("status").textContent = "Designing…";
+    $("results").textContent = "";
+    setTimeout(function () {
+      var started = performance.now();
+      try {
+        var result = PrimerDesign.designPrimers(genomeBox.value, targetBox.value, allowance, shortest, longest);
+        render(result, allowance);
+        $("status").textContent = "Done in " + ((performance.now() - started) / 1000).toFixed(1) + " s.";
+      } catch (error) {
+        $("results").appendChild(notice("err", "Error:", error.message));
+        $("status").textContent = "";
+      }
+      button.disabled = false;
+    }, 30);
+  });
+
+  // Open in a working state: the example loaded and designed.
+  loadExample();
+  run();
+})();
+</script>

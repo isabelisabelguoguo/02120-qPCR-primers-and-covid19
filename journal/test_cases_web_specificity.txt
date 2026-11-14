@@ -1,0 +1,192 @@
+TEST CASES: WEBSITE PRIMER DESIGNER (specificity and GC)
+=========================================================
+Website:  website/index.html (also https://claude.ai/artifact/XKd9SSGhpFHH1WXYemP3Bh)
+Designer: website/primer_design.js = journal/primer_design.py translated
+Checked:  every expected result below was produced by primer_design.py;
+          python3 journal/check_website_port.py checks the website gives
+          the same
+
+How to run a case: copy the GENOME block into the Genome box and the TARGET
+GENE block into the Target gene box (line breaks are fine), set the mismatch
+allowance, leave the product length range at 60 to 150 (the default), and
+press "Suggest primers". Or skip the copying: the website's "Case 1" to
+"Case 5" buttons load these same sequences and run them.
+
+Every fake genome is built the same way:
+  100 random bases + 200-base target + 100 random bases     (400 bases)
+  Cases 2-4 add 50 more random bases + a SECOND COPY of the target (650
+  bases). How closely the copy matches the target is what the case tests.
+  The target is always genome positions 101-300.
+
+What the five cases cover:
+
+  Case  Target GC            Second copy of the target         Covers
+  1     46.0 % (good)        none                              good GC, no matches elsewhere
+  2     30.5 % (low)         every 6th base changed            low GC, > 2 mismatches
+  3     66.0 % (high, ok)    every 12th base changed           high-but-ok GC, <= 2 mismatches
+  4     45.5 % (good)        exact copy                        perfect matches elsewhere
+  5     89.0 % (too high)    none                              high GC (error)
+
+Why the copies give those mismatch counts: primers are 18-24 bases.
+  every 6th base changed:  any 18-24 bases cover 3 or 4 changes -> always
+                           more than 2 mismatches, so the copy never counts
+  every 12th base changed: any 18-24 bases cover 1 or 2 changes -> within
+                           an allowance of 2, so every primer also binds the
+                           copy
+
+GC bands: every primer and probe must be 40-60 % GC. Target above 70 % ->
+error; 60-70 % -> "medium" warning; below 40 % -> "low" warning.
+Ranking: penalty = each oligo's distance from 50 % GC + (product - 60) / 10,
+so shorter products rank higher.
+Positions are 1-based. Reverse primers are listed as ordered (5'->3').
+
+
+CASE 1 - Good GC, no matches elsewhere
+---------------------------------------
+GENOME (400 bases):
+GGGGATAATAACGACCGTAACCGGATGTCCTAAGCTCAACGGGCATGTTGATAATAGTAGAGCCAACCCC
+CAGCGCGAAGAAGGGCATAGGTGTGGTAGAGAAAAGACAACGCAGGAGCCACAGCCTTATTGCATAGTGA
+GAGCTTATCACGCGGATTTGTCCCTAGACACATACGCGTACCGGTTTTCCACTATAGTACTTCGAAAACT
+GACTGGATACCATGCCTAGTCCCCTCACCCTTGTAGTCGTTGTCTTTGACTTAGGGGTTTCGTAGTGATA
+GTACGTAGATGCAGTTTAAAATACCTTGGTCCAAAATAGTTATGAGTTCGTACGGTTGTCATGATTTCGA
+TCCCAGTGGAAACCACTTGTCTAGTATTTGCGCATTGAGCAGGTCCGGGA
+
+TARGET GENE (200 bases, genome positions 101-300):
+GAAAAGACAACGCAGGAGCCACAGCCTTATTGCATAGTGAGAGCTTATCACGCGGATTTGTCCCTAGACA
+CATACGCGTACCGGTTTTCCACTATAGTACTTCGAAAACTGACTGGATACCATGCCTAGTCCCCTCACCC
+TTGTAGTCGTTGTCTTTGACTTAGGGGTTTCGTAGTGATAGTACGTAGATGCAGTTTAAA
+
+Expected (allowance 0, 1 and 2 all the same):
+  No warnings. 6,662 possible designs; 2 designs:
+  Design 1  F AGCCACAGCCTTATTGCA         117-134   (18 nt)
+            R CGTATGTGTCTAGGGACA         159-176   (18 nt)
+            P GTGAGAGCTTATCACGCGGATT     137-158   (22 nt)
+            product 117-176, 60 bp, penalty 0.00
+  Design 2  F TGGATACCATGCCTAGTC         214-231   (18 nt)
+            R CTACGAAACCCCTAAGTC         258-275   (18 nt)
+            P CCCTCACCCTTGTAGTCGTTGTCTTT 232-257   (26 nt)
+            product 214-275, 62 bp, penalty 0.20
+Meaning: the baseline. The target appears once, so the first designs
+checked are kept. Both are close to the shortest allowed product (60 bp),
+with every oligo at exactly 50 % GC.
+
+
+CASE 2 - Low GC, a copy with more than 2 mismatches
+----------------------------------------------------
+GENOME (650 bases):
+CGTGCCCCTCGTAACGTATGATGATTAAAGTTCGAACCCGTCGTAATTACACTCTCGACAGCAGGAACGT
+CACAAATCATAATCGTAAGTTAAGCTAGTCGGACTAATAATGTGTCTCATCCTAATGAAAATCTAACTGT
+AAAATTTTTACTAAAATAAACGCGGATAAAGATTGTGAGTGATCATAACTCGCGTGAGTATTATTAAAAT
+GTGTAGTGGAAACTAGAGTAATTACCGGTATCTACAAGTATTTTACAAATCGACCAATATATCTCAGAAG
+AAGACAAATTTTAAAAACGCGATAGCGTGTACCTATGGATGAGATCCGAGTAGAACTTGCGTCTAGGCTC
+AATGCAGAGCCAACGCGGTAGGTCCTCTTTAAGCAGTCACCACATCATTCCTGAGGATCAGATCGTGCAA
+CTTACGTGCGTGCTTTCAGAGCATAAAAAGTGACTACTAATGAGTCTCCTCCTACTGAAACTCTAAGTGT
+AACATTTTAACTAACATAAAGGCGGAAAAAGAATGTGATTGATCCTAACTGGCGTGCGTATTCTTAAACT
+GTGTCGTGGACACTAGCGTAATAACCGGAATCTAGAAGTAATTTACCAATCGCCCAATCTATCTGAGAAG
+CAGACACATTTTCAAAACTC
+
+TARGET GENE (200 bases, genome positions 101-300):
+GGACTAATAATGTGTCTCATCCTAATGAAAATCTAACTGTAAAATTTTTACTAAAATAAACGCGGATAAA
+GATTGTGAGTGATCATAACTCGCGTGAGTATTATTAAAATGTGTAGTGGAAACTAGAGTAATTACCGGTA
+TCTACAAGTATTTTACAAATCGACCAATATATCTCAGAAGAAGACAAATTTTAAAAACGC
+
+Expected (allowance 0, 1 and 2 all the same):
+  WARNING: target GC content is 30.5 % (low, below 40 %): fewer stretches
+  reach 40-60 % GC, so there may be fewer designs
+  Only 80 possible designs; 1 design:
+  Design 1  F CGCGGATAAAGATTGTGAGTG      161-181   (21 nt)
+            R CTCTAGTTTCCACTACAC         211-228   (18 nt)
+            P CATAACTCGCGTGAGTAT         184-201   (18 nt)
+            product 161-228, 68 bp, penalty 14.29
+Meaning: a low-GC target is only a warning, but few stretches reach 40-60 %,
+so there is one design with a high penalty. The second copy differs from
+every primer by 3 or more bases, so even at allowance 2 it does not count as
+an off-target site.
+
+
+CASE 3 - High-but-ok GC, a copy with 2 mismatches or fewer
+-----------------------------------------------------------
+GENOME (650 bases):
+CATTATTAGTATACGGATCACATTATGACGTATACTAAAGCGCTACTGCGGGGTAAGCCAGTACAGGAGA
+TCGTTGTTGACGCGCCCTTAATGATCAGGTCGGCAAGGCATGCGACCTCCCTGCAGTCACGAGCCAAAGC
+GGAATTTGCGCGACGCACGTCCAGACTGGATAGACAGTGGAGAGGCGGGCTGTCCTGCGCACGGGCGCGC
+CCGTAATCCCGAATCGGTAACCGTCACGGACGTCCACTCATCTGGTTTACGGACCCGGGACGGTCGTCCG
+GGGGACGCGCAGGGCCTTGCGCCCGAAGCCTTACGAGCACACCTCACTGCTTCGCCCTCAGAGAGGCTGA
+TTGGTTCGTCGACACATCGTCGGCGGCATCTCAGGACAACCACGTAACGAGGTGTATGTCACCAATGACG
+AATCTAAAGGCTGCCATTGTGGATAAGTACGGGCAAGGCATGGGACCTCCCTGCCGTCACGAGCCACAGC
+GGAATTTGGGCGACGCACGTGCAGACTGGATATACAGTGGAGAGTCGGGCTGTCCTTCGCACGGGCGCTC
+CCGTAATCCCTAATCGGTAACCTTCACGGACGTCGACTCATCTGGTATACGGACCCGGTACGGTCGTCCG
+TGGGACGCGCAGTGCCTTGC
+
+TARGET GENE (200 bases, genome positions 101-300):
+CGGCAAGGCATGCGACCTCCCTGCAGTCACGAGCCAAAGCGGAATTTGCGCGACGCACGTCCAGACTGGA
+TAGACAGTGGAGAGGCGGGCTGTCCTGCGCACGGGCGCGCCCGTAATCCCGAATCGGTAACCGTCACGGA
+CGTCCACTCATCTGGTTTACGGACCCGGGACGGTCGTCCGGGGGACGCGCAGGGCCTTGC
+
+Expected:
+  WARNING: target GC content is 66.0 % (medium, above 60 %): primers may
+  bind more strongly than intended; check the designs before ordering
+  1,649 possible designs.
+  Allowance 0: 1 design
+            F AAAGCGGAATTTGCGCGA         136-153   (18 nt)
+            R TACCGATTCGGGATTACG         212-229   (18 nt)
+            P ATAGACAGTGGAGAGGCG         170-187   (18 nt)
+            product 136-229, 94 bp, penalty 8.96
+  Allowance 1: 1 design (6 checked; primers covering only 1 change bind
+            the copy, so a different reverse primer is used)
+            F AAAGCGGAATTTGCGCGA         136-153   (18 nt)
+            R CGGTTACCGATTCGGGATTA       214-233   (20 nt)
+            P ATAGACAGTGGAGAGGCG         170-187   (18 nt)
+            product 136-233, 98 bp, penalty 9.36
+  Allowance 2: NO design. All 1,649 checked; every primer also binds the
+            copy with 1-2 mismatches.
+Meaning: the mismatch allowance decides what counts as an off-target site:
+the same copy is ignored at 0, partly matters at 1, and blocks everything at 2.
+
+
+CASE 4 - Perfect matches elsewhere (an exact second copy)
+---------------------------------------------------------
+GENOME (650 bases):
+GACCGTACGTTTTATTTAGGACCGGAGGAGGGATCAGAGTGGGGTGCACATTCTTCTTACAAATCAAAGT
+AATATAATGCTCTCCGATATCATGAGTATTAATACGCAATGATCCATAGATCATTGTCCGCCTGCTTGCG
+TCCAGATTAGTTACACTCTGCATCTCAATTGTCCTCTAGCGTTTACCTACGGTGAAGCCCTTTGGCCGAT
+AATATCTAGAAACGTCCGAACGTCTACCACAATTTACTAACGGAGAAAATAGCCGCCTCTGCTCTTATGC
+GTCCTTCCTAGCTTTGAAAGGTTATGCACTTGTGGTAGATAAGTCGGGCGAAGATAAGGAGAACGCGGAT
+CTCTCGAACTTGCCGACAGGCCCTGAAACTATTTCATGTAGTTCTAACGCTCTACTAAGGTGAGTCCTCA
+CCTCCACGAATAGTCGAAAAACGGGATGCAAATACGCAATGATCCATAGATCATTGTCCGCCTGCTTGCG
+TCCAGATTAGTTACACTCTGCATCTCAATTGTCCTCTAGCGTTTACCTACGGTGAAGCCCTTTGGCCGAT
+AATATCTAGAAACGTCCGAACGTCTACCACAATTTACTAACGGAGAAAATAGCCGCCTCTGCTCTTATGC
+GTCCTTCCTAGCTTTGAAAG
+
+TARGET GENE (200 bases, genome positions 101-300):
+AATACGCAATGATCCATAGATCATTGTCCGCCTGCTTGCGTCCAGATTAGTTACACTCTGCATCTCAATT
+GTCCTCTAGCGTTTACCTACGGTGAAGCCCTTTGGCCGATAATATCTAGAAACGTCCGAACGTCTACCAC
+AATTTACTAACGGAGAAAATAGCCGCCTCTGCTCTTATGCGTCCTTCCTAGCTTTGAAAG
+
+Expected (allowance 0, 1 and 2 all the same):
+  No warnings. 6,825 possible designs, all 6,825 checked, NO design.
+  The page says: every candidate also binds somewhere else in the genome.
+Meaning: every primer and probe binds both copies perfectly, so no design is
+specific. Good GC alone is not enough.
+
+
+CASE 5 - High GC (too high)
+---------------------------
+GENOME (400 bases):
+TGGACCCTCGCAGGTATTGATATGGGGGTATGTTCATGTTCGAACGTACCCGTTGCCTCCGAGGAACCGA
+GCTTACAACGTCCTCGATGTTCCAACACACGGCCGGCGCGAGCGGGCTCCGGCCGGGGGGCGGCCCCGCG
+GCCCCGACCTGGGACGACCGCGGTCGCGCTCCACCGGCCGGCGCCCGCGACGCCTCGGGCCGCGGTCCCC
+CCTGCCGGGGCCGCCAGCGGCAGCGGGGGGCGCCGTCCCCCAGGTGCGGCGCAGCCGGCGCCGGCTTGCC
+TGGGGCCGGGCGCGGGGCGCGGGGTGCGACCAGGTCAGCTTCTTTTGGCACTAGCACAGCATCGTGTGAT
+CCACAACTGGACGGTTCAATGCTCAGATCTGTTAGGGTGCCTCTAATGTT
+
+TARGET GENE (200 bases, genome positions 101-300):
+GGCCGGCGCGAGCGGGCTCCGGCCGGGGGGCGGCCCCGCGGCCCCGACCTGGGACGACCGCGGTCGCGCT
+CCACCGGCCGGCGCCCGCGACGCCTCGGGCCGCGGTCCCCCCTGCCGGGGCCGCCAGCGGCAGCGGGGGG
+CGCCGTCCCCCAGGTGCGGCGCAGCCGGCGCCGGCTTGCCTGGGGCCGGGCGCGGGGCGC
+
+Expected (any allowance):
+  ERROR: the target's GC content is 89.0 %, above 70 %: primers here would
+  bind too strongly, also at partly matching sites, and the GC-rich template
+  folds on itself and copies poorly. Choose a less GC-rich target.
+Meaning: the GC check runs first, so nothing else is searched.

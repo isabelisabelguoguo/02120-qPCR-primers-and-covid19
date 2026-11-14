@@ -1,5 +1,5 @@
 # =============================================================================
-# TESTS FOR: PRIMER DESIGN   (version 2)
+# TESTS FOR: PRIMER DESIGN   (version 3)
 # =============================================================================
 # The designer lives in primer_design.py; this file only tests it. Every case
 # uses a FAKE genome and a FAKE target gene, built from seeded random bases
@@ -22,7 +22,6 @@ import random
 from first_model_factor_specificity import reverse_complement, run_model
 from primer_design import (
     OLIGO_GC, PRIMER_LENGTH, PROBE_LENGTH, design_primers, gc_fraction, match_penalty,
-    product_range,
 )
 
 
@@ -57,17 +56,17 @@ def check(condition, message):
     print(f"  PASS: {message}")
 
 
-def check_errors(genome, target, allowance, words, message, ideal_product=100):
+def check_errors(genome, target, allowance, words, message, products=(60, 150)):
     """design_primers must stop with a ValueError whose text contains words."""
     try:
-        design_primers(genome, target, allowance, ideal_product)
+        design_primers(genome, target, allowance, *products)
     except ValueError as error:
         check(words in str(error), f"{message} (error: {error})")
         return
     raise AssertionError(f"{message}: no error raised")
 
 
-def check_design(design, genome, target_start, target_end, allowance, ideal_product=100):
+def check_design(design, genome, target_start, target_end, allowance, products=(60, 150)):
     """Every rule a returned design must follow."""
     forward, reverse, probe = design["forward"], design["reverse"], design["probe"]
     return all([
@@ -78,7 +77,7 @@ def check_design(design, genome, target_start, target_end, allowance, ideal_prod
         PROBE_LENGTH[0] <= len(probe["seq"]) <= PROBE_LENGTH[1],
         target_start <= forward["start"] and reverse["end"] <= target_end,
         forward["end"] <= probe["start"] and probe["end"] <= reverse["start"],
-        product_range(ideal_product)[0] <= design["product_length"] <= product_range(ideal_product)[1],
+        products[0] <= design["product_length"] <= products[1],
         design["product_length"] == reverse["end"] - forward["start"],
         all(OLIGO_GC[0] <= gc_fraction(o["seq"]) <= OLIGO_GC[1] for o in (forward, reverse, probe)),
         independent_check(design, genome, allowance),
@@ -119,22 +118,22 @@ def case_basic():
 
 def case_ranking():
     print("\n--- Case 2: ranking, best match first (worked out by hand) ---")
-    # penalty = sum over the 3 oligos of |GC% - 50| + |product - 100| / 10
+    # penalty = sum over the 3 oligos of |GC% - 50| + (product - shortest) / 10
+    # with the default range 60-150:
     #   forward 9/20 = 45 % -> 5, reverse 10/20 = 50 % -> 0,
-    #   probe 11/20 = 55 % -> 5, product 80 bp -> 20 / 10 = 2;  total 12
+    #   probe 11/20 = 55 % -> 5, product 80 bp -> (80 - 60) / 10 = 2;  total 12
     forward = "AAAAAAAAAAAGGGGGGGGG"   # 9 G of 20
     reverse = "AAAAAAAAAAGGGGGGGGGG"   # 10 G of 20
     probe = "AAAAAAAAAGGGGGGGGGGG"     # 11 G of 20
     check(match_penalty(forward, reverse, probe, 80) == 12, "hand example: penalty 12")
-    check(match_penalty(reverse, reverse, reverse, 100) == 0, "all 50 %, 100 bp: penalty 0")
+    check(match_penalty(reverse, reverse, reverse, 60) == 0, "all 50 %, 60 bp: penalty 0")
+    check(match_penalty(reverse, reverse, reverse, 150) == 9, "all 50 %, 150 bp: penalty 9")
 
     designs = design_primers(GENOME, TARGET, 2)["designs"]
     first = designs[0]
-    # design 1: forward TGGCAGCTAGGTCGTGTCATGTTA = 12 G/C of 24 = 50 %,
-    # and every oligo 50 %, product 100 bp -> penalty 0, the best possible
-    check(first["forward"]["seq"] == "TGGCAGCTAGGTCGTGTCATGTTA", "design 1 forward as worked out")
-    check(first["match_penalty"] == 0 and first["product_length"] == 100,
-          "design 1: every oligo 50 % GC, 100 bp, penalty 0")
+    check(first["match_penalty"] == 0 and first["product_length"] == 60,
+          f"design 1: every oligo 50 % GC, 60 bp (the shortest allowed), penalty 0 "
+          f"(forward {first['forward']['seq']})")
     penalties = [d["match_penalty"] for d in designs]
     check(penalties == sorted(penalties), f"designs come out best match first {penalties}")
 
@@ -249,18 +248,16 @@ def case_no_gc_window():
 
 
 def case_product_length():
-    print("\n--- Case 14: the user chooses the product length ---")
-    at_70 = design_primers(GENOME, TARGET, 2, 70)
-    check(product_range(70) == (54, 120), "70 bp: designs from 54 to 120 bp")
-    check(all(check_design(d, GENOME, 2000, 2400, 2, 70) for d in at_70["designs"]),
-          f"70 bp: every design follows every rule {[d['product_length'] for d in at_70['designs']]}")
-    check(at_70["designs"][0]["product_length"] == 70, "70 bp: the best design is 70 bp")
-    check(at_70["warnings"] == [], "70 bp: no warning (inside 60-150)")
-    at_300 = design_primers(GENOME, TARGET, 2, 300)
-    check(product_range(300) == (250, 350), "300 bp: designs from 250 to 350 bp")
-    check(all(check_design(d, GENOME, 2000, 2400, 2, 300) for d in at_300["designs"]),
-          f"300 bp: every design follows every rule {[d['product_length'] for d in at_300['designs']]}")
-    check(any("outside 60-150" in w for w in at_300["warnings"]), "300 bp: qPCR warning given")
+    print("\n--- Case 14: the user chooses the product length range ---")
+    short = design_primers(GENOME, TARGET, 2, 70, 90)
+    check(all(check_design(d, GENOME, 2000, 2400, 2, (70, 90)) for d in short["designs"]),
+          f"70-90 bp: every design follows every rule {[d['product_length'] for d in short['designs']]}")
+    check(short["designs"][0]["product_length"] == 70, "70-90 bp: the best design is 70 bp (shortest)")
+    check(short["warnings"] == [], "70-90 bp: no warning (inside 60-150)")
+    long = design_primers(GENOME, TARGET, 2, 250, 350)
+    check(all(check_design(d, GENOME, 2000, 2400, 2, (250, 350)) for d in long["designs"]),
+          f"250-350 bp: every design follows every rule {[d['product_length'] for d in long['designs']]}")
+    check(any("outside 60-150" in w for w in long["warnings"]), "250-350 bp: qPCR warning given")
 
 
 # =============================================================================
@@ -273,8 +270,10 @@ def case_bad_input():
                  "not in the genome", "target not in the genome")
     check_errors(GENOME, TARGET, 3, "0 to 2", "allowance 3 is too high")
     check_errors(GENOME, TARGET, -1, "0 to 2", "allowance -1 is too low")
-    check_errors(GENOME, TARGET, 2, "at least 54", "product length 53 is too short", ideal_product=53)
-    check_errors(GENOME, TARGET[:99], 2, "shorter than", "a 99-base target cannot hold a 100 bp product")
+    check_errors(GENOME, TARGET, 2, "at least 54", "shortest product 53 is too short", (53, 150))
+    check_errors(GENOME, TARGET, 2, "shorter than the shortest", "range 150-60 is backwards", (150, 60))
+    check_errors(GENOME, TARGET[:59], 2, "shorter than the shortest product",
+                 "a 59-base target cannot hold a 60 bp product")
 
 
 # =============================================================================

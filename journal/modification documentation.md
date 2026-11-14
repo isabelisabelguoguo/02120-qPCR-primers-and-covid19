@@ -25,6 +25,9 @@ numbered, and the diary points to them as **(#n)**.
 | `test_primer_design.py` | fake-genome tests for the designer |
 | `test_cases_primer_design.txt` | every designer test case and its outcome, plus the CDC check |
 | `troubleshooting.txt` | one line per problem overcome, with the functions each fix changed |
+| `test_cases_web_specificity.txt` | 5 website test cases (GC levels and off-target copies) with sequences |
+| `check_website_port.py` | checks the website's JavaScript designer gives the same results as the Python |
+| `../website/` | the website: `index.html`, `primer_design.js`, `example_data.js` (Log 13) |
 | `diary.md` | plain-language log of each version |
 
 ---
@@ -704,6 +707,66 @@ it was replaced by the plain-text summary before being committed.
 
 ---
 
+## Log 13 · 2026-11-13 · The website, and product length as a range
+
+**Commit:** filled in at the next update
+
+**#59. Problem:** the planned website has to run in a browser, which cannot
+run Python.
+**Fix:** `website/primer_design.js` translates `primer_design.py` and the
+first-model functions it uses (`build_kmer_index`, `find_binding_sites`,
+`candidate_starts`, `compare_site`, `find_indel_sites`, `pair_into_products`,
+`probe_inside`, `product_status`, ...) function by function; each JS function
+names the Python one it copies. Near-miss search and printing are left out.
+One addition: `checkLetters` gives an error for non-DNA letters (the Python
+raises a `KeyError`). N/ambiguous positions are found once per genome
+instead of on every call (same answer, faster). `website/index.html`: genome
+box (paste or open a FASTA file), target box, allowance (0-2), product
+range; ranked design cards with an SVG map of the product, the reverse
+primer shown 3'->5' with its order sequence, and copy buttons.
+`website/example_data.js`: NC_045512.2 and its N gene for the example.
+Published as a private artifact (https://claude.ai/artifact/XKd9SSGhpFHH1WXYemP3Bh).
+`journal/check_website_port.py` runs both versions on the same inputs (via
+macOS `osascript -l JavaScript`, so no Node) and compares designs,
+positions, penalties, counts and warnings/errors: 35 of 35 identical.
+
+**#60. Problem:** copying long sequences from the terminal didn't work.
+**Fix:** buttons on the page load each test case and run it.
+`test_cases_web_specificity.txt`: 5 cases (genome = 100 random + 200-base
+target + 100 random, cases 2-4 + 50 random + a second copy):
+1. good GC (46.0 %), no copy -> 2 designs
+2. low GC (30.5 %), copy with every 6th base changed (3-4 mismatches per
+   primer) -> warning, 1 design; the copy never counts
+3. high-but-ok GC (66.0 %), every 12th base changed (1-2 mismatches) ->
+   warning; a design at allowance 0 and 1, none at 2
+4. good GC, exact copy -> no design
+5. 89.0 % GC -> error
+
+The same sequences are in `example_data.js` (`TEST_EXAMPLES`), and
+`check_website_port.py` runs each at allowance 0, 1 and 2.
+
+**#61. Problem:** the product length was one number with +/- 50 bp around
+it; testing the website, a range was more natural.
+**Fix:** `design_primers(..., min_product=60, max_product=150)` (CLI: 4th
+and 5th arguments). `PRODUCT_RANGE` = (60, 150) replaces `IDEAL_PRODUCT` and
+`PRODUCT_SPREAD`; `product_range` was removed. `match_penalty` now adds
+(product - min_product) / 10, so shorter products rank higher. Errors:
+shortest < 54 bp, longest < shortest, target shorter than the shortest.
+Warning when the range goes outside 60-150. Same change in
+`primer_design.js` and the page (two boxes). Tests: Case 2 (60 bp -> 0,
+150 bp -> 9; the hand example is still 12), Case 14 (70-90 and 250-350),
+Case 15 (53-150, 150-60, 59-base target); 15 cases pass.
+`test_cases_primer_design.txt` rewritten as version 3. CDC check with the
+default range: the designer's first choices are 60 bp products; N1's
+(28275-28334) is next to the CDC N1 product (28287-28358).
+
+**Process note (not a model problem):** `save_journal.py` reads stdin, so
+inside a combined command it waited forever and swallowed a heredoc commit
+message (no commit was made). It is now run as
+`python3 .claude/hooks/save_journal.py < /dev/null`.
+
+---
+
 ## Still open (known limits after version 4)
 - Near-miss and small-gap searches need an exact 6-base stretch (#15, #40).
 - Near-miss limits (#16, #17) were tuned on random sequence, not real genomes
@@ -733,9 +796,10 @@ it was replaced by the plain-text summary before being committed.
   RPP30 segment from NCBI).
 
 ## Planned (not built yet)
-- **Primer design, next:** report each published design's rank among the
-  designer's options, move the CDC check into `journal/`, then the website
-  (genome box, target box, allowance box, product length box).
+- **Primer design, next:** compare with NCBI BLAST (our primers against
+  NCBI's databases) and Primer-BLAST (its designs for the N gene); report
+  each published design's rank; move the CDC check into `journal/`; add the
+  second model's Tm to the website.
 Factor 2's basic plan (nearest-neighbor Tm, Primer3's salt correction,
 mismatch parameters, comparison with the 55 C annealing step, fraction
 bound) was built in Log 9 (#43-#45). Still to do for it:

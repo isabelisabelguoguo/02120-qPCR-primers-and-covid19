@@ -1,5 +1,5 @@
 # =============================================================================
-# PRIMER DESIGN: a qPCR primer pair + probe for a target gene   (version 2)
+# PRIMER DESIGN: a qPCR primer pair + probe for a target gene   (version 3)
 # =============================================================================
 # 02-120 project: Do early SARS-CoV-2 qPCR primers still match later variants?
 #
@@ -23,8 +23,8 @@
 #   target          - the target gene's sequence; it must appear in the genome
 #                     (on either strand), e.g. the N gene
 #   max_mismatches  - the mismatch allowance, 0 to MAX_ALLOWED_MISMATCHES (2)
-#   ideal_product   - the product length to aim for (default 100 bp); designs
-#                     are made within +/- 50 bp of it
+#   min_product,    - the product length range (default 60-150 bp); designs
+#   max_product       are only made inside it, and shorter ones rank higher
 #
 # Output, for each design (best first):
 #   5'-forward-3', and 3'-reverse-5' (the reverse primer written backwards, so
@@ -41,8 +41,8 @@
 #      18-30) is the one with GC closest to 50 %, among windows made of known
 #      bases (A/C/G/T only) with 40-60 % GC
 #   3. pair each forward with each reverse downstream of it that gives a
-#      product within PRODUCT_SPREAD (50 bp) of ideal_product, and put the probe whose middle is closest
-#      to the middle of the gap between them
+#      product within the chosen range (min_product to max_product), and put
+#      the probe whose middle is closest to the middle of the gap between them
 #   4. rank the designs, best match first (Section 3b), and walk down the
 #      ranking; keep a design only if, on the WHOLE genome and within the
 #      mismatch allowance,
@@ -53,8 +53,8 @@
 # Run the demo with:  python3 journal/primer_design.py
 #   (designs primers for the N gene of the reference genome)
 # Or with your own files:
-#   python3 journal/primer_design.py genome.fasta target.fasta 2 100
-#   (the last two, allowance and product length, can be left out)
+#   python3 journal/primer_design.py genome.fasta target.fasta 2 60 150
+#   (the last three, allowance and product range, can be left out)
 # =============================================================================
 
 import glob
@@ -93,10 +93,9 @@ GC_MEDIUM_ABOVE = 0.60      # target above this: warning (GC-rich)
 GC_TOO_HIGH_ABOVE = 0.70    # target above this: error, the design stops
 PRIMER_LENGTH = (18, 24)
 PROBE_LENGTH = (18, 30)
-IDEAL_PRODUCT = 100         # default product length; the user can choose another
-PRODUCT_SPREAD = 50         # designs are made within +/- this many bp of it
+PRODUCT_RANGE = (60, 150)   # default product length range; the user can choose another
 MIN_PRODUCT = 54            # room for an 18-base forward, probe and reverse
-QPCR_PRODUCT = (60, 150)    # qPCR works best here; outside it gives a warning
+QPCR_PRODUCT = (60, 150)    # qPCR works best here; a range outside it gives a warning
 MAX_ALLOWED_MISMATCHES = 2
 DESIGNS_WANTED = 3
 
@@ -249,14 +248,10 @@ def centred_probe(probes, gap_start, gap_end):
     return None if best is None else best[1]
 
 
-def product_range(ideal_product):
-    """(shortest, longest) product allowed for this ideal length."""
-    return max(MIN_PRODUCT, ideal_product - PRODUCT_SPREAD), ideal_product + PRODUCT_SPREAD
-
-
-def possible_designs(genome, region_start, region_end, ideal_product=IDEAL_PRODUCT):
+def possible_designs(genome, region_start, region_end, min_product=PRODUCT_RANGE[0],
+                     max_product=PRODUCT_RANGE[1]):
     """Every forward/reverse/probe design inside the target, best first."""
-    shortest, longest = product_range(ideal_product)
+    shortest, longest = min_product, max_product
     # forward and probe: anchored at their 5' end (left), grow right
     forwards = all_windows(genome, range(region_start, region_end), PRIMER_LENGTH,
                            region_start, region_end, "right")
@@ -289,7 +284,7 @@ def possible_designs(genome, region_start, region_end, ideal_product=IDEAL_PRODU
                 "product_end": product_end,
                 "product_length": product_end - forward_start,
                 "match_penalty": match_penalty(forward, reverse_window, probe,
-                                               product_end - forward_start, ideal_product),
+                                               product_end - forward_start, min_product),
             })
     designs.sort(key=lambda d: (d["match_penalty"], d["product_start"]))
     return designs
@@ -303,16 +298,17 @@ def possible_designs(genome, region_start, region_end, ideal_product=IDEAL_PRODU
 #
 #   penalty = |forward GC - 50| + |reverse GC - 50| + |probe GC - 50|
 #             (in percentage points)
-#           + |product length - ideal product length| / 10
+#           + (product length - shortest allowed product) / 10
 #
 # Lower is better. 1 point = 1 GC percentage point on one oligo = 10 bp of
-# product length. Ties go to the earlier start.
+# product length. Shorter products rank higher, because short products
+# amplify most efficiently in qPCR. Ties go to the earlier start.
 # =============================================================================
 
-def match_penalty(forward, reverse_window, probe, product_length, ideal_product=IDEAL_PRODUCT):
+def match_penalty(forward, reverse_window, probe, product_length, min_product=PRODUCT_RANGE[0]):
     gc_points = sum(abs(100 * gc_fraction(seq) - 100 * IDEAL_GC)
                     for seq in (forward, reverse_window, probe))
-    return round(gc_points + abs(product_length - ideal_product) / 10, 2)
+    return round(gc_points + (product_length - min_product) / 10, 2)
 
 
 # =============================================================================
@@ -351,30 +347,33 @@ def specific(design, genome, index, max_mismatches, cache):
 # SECTION 5: THE WHOLE DESIGN IN ONE CALL
 # =============================================================================
 
-def design_primers(genome, target, max_mismatches=2, ideal_product=IDEAL_PRODUCT,
-                   designs_wanted=DESIGNS_WANTED):
+def design_primers(genome, target, max_mismatches=2, min_product=PRODUCT_RANGE[0],
+                   max_product=PRODUCT_RANGE[1], designs_wanted=DESIGNS_WANTED):
     """Design up to designs_wanted primer pairs + probes for target, best first."""
     genome, target = clean_sequence(genome), clean_sequence(target)
     if not 0 <= max_mismatches <= MAX_ALLOWED_MISMATCHES:
         raise ValueError(f"mismatch allowance must be 0 to {MAX_ALLOWED_MISMATCHES}")
-    if ideal_product < MIN_PRODUCT:
-        raise ValueError(f"the product length must be at least {MIN_PRODUCT} bp "
+    if min_product < MIN_PRODUCT:
+        raise ValueError(f"the shortest product must be at least {MIN_PRODUCT} bp "
                          f"(room for an 18-base forward primer, probe and reverse primer)")
-    if len(target) < ideal_product:
+    if max_product < min_product:
+        raise ValueError(f"the longest product ({max_product} bp) is shorter than the "
+                         f"shortest ({min_product} bp)")
+    if len(target) < min_product:
         raise ValueError(f"the target ({len(target)} bases) is shorter than the "
-                         f"{ideal_product} bp product asked for")
+                         f"shortest product asked for ({min_product} bp)")
 
     # -- the GC check comes first: a too GC-rich target stops here
     warnings = []
     target_warning = check_target_gc(target)
     if target_warning:
         warnings.append(target_warning)
-    if not QPCR_PRODUCT[0] <= ideal_product <= QPCR_PRODUCT[1]:
-        warnings.append(f"a {ideal_product} bp product is outside {QPCR_PRODUCT[0]}-"
-                        f"{QPCR_PRODUCT[1]} bp, where qPCR works best")
+    if min_product < QPCR_PRODUCT[0] or max_product > QPCR_PRODUCT[1]:
+        warnings.append(f"the product range {min_product}-{max_product} bp goes outside "
+                        f"{QPCR_PRODUCT[0]}-{QPCR_PRODUCT[1]} bp, where qPCR works best")
 
     region_start, region_end, strand = find_target(genome, target)
-    designs = possible_designs(genome, region_start, region_end, ideal_product)
+    designs = possible_designs(genome, region_start, region_end, min_product, max_product)
 
     index = build_kmer_index(genome, K)
     cache, chosen, checked = {}, [], 0
@@ -393,12 +392,12 @@ def design_primers(genome, target, max_mismatches=2, ideal_product=IDEAL_PRODUCT
     if not designs:
         warnings.append("no design: the target has no forward, reverse and probe "
                         f"stretches with {round(100 * OLIGO_GC[0])}-{round(100 * OLIGO_GC[1])} % GC "
-                        "that fit together into a {}-{} bp product".format(*product_range(ideal_product)))
+                        f"that fit together into a {min_product}-{max_product} bp product")
 
     return {
         "warnings": warnings,
         "target": {"start": region_start, "end": region_end, "strand": strand},
-        "ideal_product": ideal_product,
+        "product_range": (min_product, max_product),
         "possible": len(designs),
         "checked": checked,
         "designs": chosen,
@@ -413,9 +412,8 @@ def print_designs(result, max_mismatches):
     target = result["target"]
     print(f"Target: genome positions {target['start'] + 1}-{target['end']} "
           f"({target['strand']} strand), {target['end'] - target['start']} bases")
-    shortest, longest = product_range(result["ideal_product"])
-    print(f"Product length: aiming for {result['ideal_product']} bp "
-          f"(designs from {shortest} to {longest} bp)")
+    shortest, longest = result["product_range"]
+    print(f"Product length: {shortest}-{longest} bp (shorter ranks higher)")
     print(f"{result['possible']} possible designs; {result['checked']} checked against "
           f"the whole genome (mismatch allowance {max_mismatches}).\n")
     for warning in result["warnings"]:
@@ -453,17 +451,18 @@ if __name__ == "__main__":
         genome = read_fasta(sys.argv[1])[1]
         target = read_fasta(sys.argv[2])[1]
         allowance = int(sys.argv[3]) if len(sys.argv) > 3 else 2
-        product = int(sys.argv[4]) if len(sys.argv) > 4 else IDEAL_PRODUCT
+        shortest = int(sys.argv[4]) if len(sys.argv) > 4 else PRODUCT_RANGE[0]
+        longest = int(sys.argv[5]) if len(sys.argv) > 5 else PRODUCT_RANGE[1]
     else:
         project = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         genome = read_fasta(glob.glob(os.path.join(project, "data", "reference", "*"))[0])[1]
         target = genome[28274 - 1:29533]
         allowance = 2
-        product = IDEAL_PRODUCT
+        shortest, longest = PRODUCT_RANGE
         print("Demo: N gene of the reference genome NC_045512.2\n")
 
     try:
-        result = design_primers(genome, target, allowance, product)
+        result = design_primers(genome, target, allowance, shortest, longest)
     except ValueError as error:
         print(f"ERROR: {error}")
         sys.exit(1)
