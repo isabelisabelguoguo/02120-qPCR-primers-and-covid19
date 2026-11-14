@@ -522,7 +522,7 @@ session logs)
 
 ## Log 13 · 2026-11-13 · The website, and product length as a range
 
-**Commit:** filled in at the next update
+**Commit:** `4b95102`
 
 ### What I did
 - Built the first website: paste a genome and a target gene, pick the

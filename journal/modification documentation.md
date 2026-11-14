@@ -709,7 +709,7 @@ it was replaced by the plain-text summary before being committed.
 
 ## Log 13 · 2026-11-13 · The website, and product length as a range
 
-**Commit:** filled in at the next update
+**Commit:** `4b95102`
 
 **#59. Problem:** the planned website has to run in a browser, which cannot
 run Python.
