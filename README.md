@@ -31,5 +31,7 @@ targets survive.
 ## Data
 see data folder
 ## Running it
-
-current version does not account for annealing temperature, but includes pseudoprimers, solve-by-hand cases, and checks CDC primers
+first model does not account for annealing temperature, but includes pseudoprimers, solve-by-hand cases, and checks CDC primers
+second model does attempt to account for annealing temperature but still needs some work
+**first website applies our primer specificity model in reverse: it finds possible primers for a given genome and target gene while accounting for specificity, mismatch allowance, GC content, 3' distance of mismatches, mismatch severity, etc.
+Limitation: it does not yet include annealing temperature, but the website's first version was tested against reverse-engineered test cases, CDC primers, and we generated some possible cases to see how the primers our website produces compares with NCBI BLAST **
