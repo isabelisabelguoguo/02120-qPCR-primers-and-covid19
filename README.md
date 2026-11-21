@@ -4,6 +4,18 @@
 
 02-120 Programming for Scientists, Fall 2026.
 
+## Website (public)
+
+**https://isabelisabelguoguo.github.io/02120-qPCR-primers-and-covid19/**
+
+- [Version 1](https://isabelisabelguoguo.github.io/02120-qPCR-primers-and-covid19/website/):
+  designs primers on GC content only.
+- [Version 2](https://isabelisabelguoguo.github.io/02120-qPCR-primers-and-covid19/website_temperature/):
+  adds melting temperature, primer dimers and user-set reaction conditions.
+
+Both run in the browser. They are published from `website/` and
+`website_temperature/` by `.github/workflows/pages.yml` on every push.
+
 ## Scientific question
 
 Do qPCR primer sets designed early in the pandemic still match the genomes of

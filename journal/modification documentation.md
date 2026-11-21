@@ -767,7 +767,7 @@ message (no commit was made). It is now run as
 
 ## Log 14 · 2026-11-19 · Comparing with NCBI, and adding temperature
 
-**Commit:** filled in at the next update
+**Commit:** `1786b13`
 
 **#62. Problem:** we did not know how our first model's binding sites
 compare with NCBI BLAST, or where our primers match in real organisms.
@@ -857,6 +857,23 @@ website.
 **Fix:** `dimer_scan` grows each region one base at a time (same summation
 order, identical results) and `dimer_check(cache=...)` scans each oligo pair
 once per run: 2.1 s.
+
+## Log 15 · 2026-11-20 · A public website
+
+**Commit:** filled in at the next update
+
+**#69. Problem:** the websites are claude.ai artifacts, which cannot be
+shared outside the organization.
+**Fix:** GitHub Pages. `.github/build_pages.py` copies `website/` and
+`website_temperature/` into `_site/` (git-ignored), adds the document
+skeleton claude.ai adds at publish time (doctype, UTF-8, viewport, reset),
+rewrites the claude.ai cross-links to `../website/` and
+`../website_temperature/`, and writes a home page linking both versions.
+`.github/workflows/pages.yml` runs it and deploys on every push to main
+(one-time setting: Settings -> Pages -> Source: GitHub Actions). The source
+pages are unchanged, so the claude.ai artifacts can still be republished
+from them. Public link in README.md:
+https://isabelisabelguoguo.github.io/02120-qPCR-primers-and-covid19/
 
 ---
 

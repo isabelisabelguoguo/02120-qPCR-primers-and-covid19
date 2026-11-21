@@ -563,7 +563,7 @@ session logs)
 
 ## Log 14 · 2026-11-19 · Comparing with NCBI, and adding temperature
 
-**Commit:** filled in at the next update
+**Commit:** `1786b13`
 
 ### What I did
 - Compared the website's test cases with NCBI BLAST. On each case's own
@@ -624,6 +624,16 @@ session logs)
 - Report where each CDC design ranks among the designer's options (#52).
 - Make `primer_design.py` give a clear error for non-DNA letters, like the
   website does, instead of crashing.
+
+## Log 15 · 2026-11-20 · A public website
+
+**Commit:** filled in at the next update
+
+### What I did
+- The claude.ai pages can only be opened inside my organization, so I put
+  both websites on GitHub Pages, where anyone can open them, with a home
+  page that links Version 1 and Version 2. The link is at the top of the
+  README **(#69)**.
 
 ---
 

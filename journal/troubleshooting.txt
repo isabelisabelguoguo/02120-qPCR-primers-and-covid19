@@ -3,7 +3,7 @@ TROUBLESHOOTING
 One line per problem overcome, in five parts:
   PART 1  first_model_factor_specificity.py  (#1-#46)
   PART 2  primer_design.py                   (#47-#57, #61, #65, #68)
-  PART 3  the websites (website/, website_temperature/)  (#59-#60, #66)
+  PART 3  the websites (website/, website_temperature/)  (#59-#60, #66, #69)
   PART 4  second_model_annealing_temp.py     (#64, #67)
   PART 5  comparison with NCBI               (#62-#63)
 Numbers match modification documentation.md, which has the full details.
@@ -246,6 +246,13 @@ Version 1 is website/ (GC only); Version 2 is website_temperature/.
                  thermoScale, dimerRow (website_temperature/index.html);
                  site_cases, run_javascript, summary
                  (journal/check_website_port.py)
+
+- #69 The claude.ai pages could not be shared outside the organization ->
+      both sites published on GitHub Pages with a home page; a build step
+      adds the page skeleton and makes the cross-links point to the public
+      copies.
+      Functions: build (.github/build_pages.py);
+                 .github/workflows/pages.yml
 
 (Not listed: the save_journal.py stdin hang, a process problem, not the
 model; see Log 13 in modification documentation.md.)
