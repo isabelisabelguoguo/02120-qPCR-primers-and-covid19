@@ -9,6 +9,7 @@
 #   _site/index.html                 home page: links to both versions
 #   _site/website/                   Version 1 (GC content only)
 #   _site/website_temperature/       Version 2 (with melting temperature)
+#   _site/website_structures/        Version 3 (+ primer dimers and hairpins)
 #
 # The pages link to each other with their claude.ai addresses (those only
 # work inside the organization); here the links point to the public copies.
@@ -26,6 +27,7 @@ OUT = os.path.join(PROJECT, "_site")
 SITES = {
     "website": "https://claude.ai/artifact/XKd9SSGhpFHH1WXYemP3Bh",
     "website_temperature": "https://claude.ai/artifact/JRi6KEZtGsBqdkP5jUspZ7",
+    "website_structures": "https://claude.ai/artifact/J4B9pWGJaxSc9vZeFYtKw4",
 }
 
 # The same skeleton claude.ai adds: charset, viewport (with the side insets
@@ -66,8 +68,8 @@ body { background: var(--bg); color: var(--ink); font-family: var(--font-body); 
 .eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 h1 { font-family: var(--font-head); font-weight: 600; font-size: 34px; line-height: 1.15; margin: 4px 0 0; text-wrap: balance; }
 .lede { margin: 0; color: var(--muted); max-width: 65ch; }
-.versions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-@media (max-width: 600px) { .versions { grid-template-columns: 1fr; } }
+.versions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 760px) { .versions { grid-template-columns: 1fr; } }
 a.version { display: grid; gap: 8px; align-content: start; background: var(--surface); border: 1px solid var(--line);
             border-radius: 8px; padding: 20px; color: var(--ink); text-decoration: none; min-width: 0; }
 a.version:hover, a.version:focus-visible { border-color: var(--accent); }
@@ -76,7 +78,7 @@ a.version:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px;
 .version h2 { font-family: var(--font-head); font-size: 22px; font-weight: 600; margin: 0; }
 .version p { margin: 0; color: var(--muted); font-size: 14px; }
 .go { color: var(--accent); font-weight: 600; font-size: 14px; }
-.v2 .tag { color: var(--heat); }
+.v2 .tag, .v3 .tag { color: var(--heat); }
 footer { font-size: 13px; color: var(--muted); }
 footer a { color: var(--accent); }
 </style>
@@ -87,7 +89,7 @@ footer a { color: var(--accent); }
     <h1>qPCR Primer Designer</h1>
     <p class="lede">Paste a genome and a target gene. The designer suggests a forward primer, a reverse
       primer and a probe, and checks with our specificity model that each design makes only one
-      product in the whole genome. Both versions run entirely in your browser.</p>
+      product in the whole genome. All three versions run entirely in your browser.</p>
   </header>
 
   <div class="versions">
@@ -101,14 +103,22 @@ footer a { color: var(--accent); }
     <a class="version v2" href="website_temperature/">
       <span class="tag">Version 2 · with melting temperature</span>
       <h2>Temperature-Aware Primer Designer</h2>
-      <p>Chooses lengths so primers hold at the qPCR annealing step, keeps the probe above them,
-        checks primer dimers, and lets you set the salt and oligo amounts.</p>
+      <p>Chooses lengths so primers hold at the qPCR annealing step and keeps the probe above
+        them.</p>
       <span class="go">Open Version 2 →</span>
+    </a>
+    <a class="version v3" href="website_structures/">
+      <span class="tag">Version 3 · with primer dimers and hairpins</span>
+      <h2>Structure-Aware Primer Designer</h2>
+      <p>Everything in Version 2, and also rejects oligos that fold into hairpins or stick together
+        as primer dimers, and lets you set the salt and oligo amounts.</p>
+      <span class="go">Open Version 3 →</span>
     </a>
   </div>
 
   <footer>Version 1 led to Version 2: compared with NCBI Primer-BLAST, Version 1 picked primers that melt
-    too close to the annealing temperature. Code, tests and the build journal:
+    too close to the annealing temperature. Version 3 adds the structure checks promised in the project
+    proposal. Every design still needs lab testing before it can be trusted. Code, tests and the build journal:
     <a href="https://github.com/isabelisabelguoguo/02120-qPCR-primers-and-covid19">GitHub repository</a>.</footer>
 </div>
 """

@@ -1,5 +1,5 @@
 # =============================================================================
-# SECOND MODEL: FACTOR: ANNEALING TEMPERATURE   (version 3)
+# SECOND MODEL: FACTOR: ANNEALING TEMPERATURE   (version 4)
 # =============================================================================
 # 02-120 project: Do early SARS-CoV-2 qPCR primers still match later variants?
 #
@@ -33,11 +33,14 @@
 #   - (version 3) finds primer dimers (Section 10): every pair of oligos
 #     lined up at every offset, the paired region's nearest-neighbor energy
 #     summed; salt and oligo amounts can be set by the user (QPCR_CONDITIONS)
+#   - (version 4) hairpins (Section 11), and dimers count a terminal
+#     mismatch at each end of the paired region
 #
 # What it does NOT do yet:
 #   - insertions/deletions: no bulge-loop parameters yet (Tm "not computed")
 #   - two mismatches next to each other: no tandem-mismatch parameters
-#   - hairpins (an oligo folding on itself needs loop parameters)
+#   - hairpin stems with mismatches or bulges, dangling ends, and RNA
+#     folding of the template at the binding site
 #   - a full kinetic/efficiency model: the fraction bound is an equilibrium
 #     estimate, not a predicted Ct
 #
@@ -96,6 +99,21 @@ def read_nn_table(filename):
 MATCHED = read_nn_table("santalucia_1998_nn.tsv")
 INTERNAL_MISMATCH = read_nn_table("allawi_santalucia_internal_mismatch_nn.tsv")
 TERMINAL_MISMATCH = read_nn_table("santalucia_peyret_terminal_mismatch_nn.tsv")
+
+
+def read_loop_table(filename):
+    """{loop size: hairpin dS} from the SantaLucia & Hicks (2004) loop table (dH = 0)."""
+    hairpin = {}
+    with open(os.path.join(THERMO_DIR, filename)) as handle:
+        for line in handle:
+            if line.startswith("#") or line.startswith("loop_size") or not line.strip():
+                continue
+            size, _, _, hairpin_ds = line.split("\t")
+            hairpin[int(size)] = float(hairpin_ds)
+    return hairpin
+
+
+HAIRPIN_LOOP_DS = read_loop_table("santalucia_hicks_2004_loops.tsv")
 
 R = 1.9872   # gas constant, cal/(K*mol)
 
@@ -552,9 +570,9 @@ def oligo_at_annealing(oligo, role, annealing_c=ANNEALING_TEMP_C, conditions=CON
 
 def assay_temperature_check(forward, reverse, probe=None, product=None,
                             annealing_c=ANNEALING_TEMP_C, conditions=CONDITIONS, dimers=True):
-    """Check rules 1-4 (and primer dimers, Section 10); returns each oligo's Tm
-    and fraction bound, the product Tm, the dimers, and a list of problems
-    (empty = the assay suits qPCR)."""
+    """Check rules 1-4 (and primer dimers, Section 10, and hairpins, Section 11);
+    returns each oligo's Tm and fraction bound, the product Tm, the dimers and
+    hairpins, and a list of problems (empty = the assay suits qPCR)."""
     oligos = {"forward": forward.upper(), "reverse": reverse.upper()}
     if probe:
         oligos["probe"] = probe.upper()
@@ -595,6 +613,8 @@ def assay_temperature_check(forward, reverse, probe=None, product=None,
     if dimers and all(set(seq) <= set("ACGT") for seq in oligos.values()):
         result["dimers"], dimer_problems = dimer_check(oligos, conditions_for("forward", conditions))
         problems.extend(dimer_problems)
+        result["hairpins"], hairpin_problems = hairpin_check(oligos, conditions_for("forward", conditions))
+        problems.extend(hairpin_problems)
     result["problems"] = problems
     result["ok"] = not problems
     return result
@@ -614,20 +634,24 @@ def assay_temperature_check(forward, reverse, probe=None, product=None,
 # offset take every paired region: a stretch that starts and ends with a
 # Watson-Crick pair. Its energy is summed with the same nearest-neighbor
 # tables as everything else (duplex_energy): matched stacks, plus single
-# internal mismatches inside the region (two side by side end it). The most
-# stable region over all offsets is the dimer.
+# internal mismatches inside the region (two side by side end it), plus
+# (version 4) a terminal mismatch just outside either end, which stacks on
+# the last pair and stabilises it. The most stable region over all offsets
+# is the dimer. Only a PAIRED 3' end counts as extendable: the polymerase
+# needs the last base matched.
 #
 #   dG(T) = 1000 * dH - (T + 273.15) * dS     (cal/mol, dS salt-corrected)
 #   reported at 37 C, the usual reference temperature for dimers.
 #
 # Compared with Primer3's homodimer dG for the CDC oligos
-# (data/primers/primer3_reference_tm.tsv), these values are 1-4 kcal/mol
-# LESS negative: Primer3 also counts bases dangling past the paired region
-# and loops. So the limits below were set on THIS method, using the CDC
-# assays (test case T14):
-#   most stable dimer of any kind: N2 probe with itself, -5.9 kcal/mol
+# (data/primers/primer3_reference_tm.tsv): without terminal mismatches
+# (version 3) these values were on average 2.2 kcal/mol LESS negative; with
+# them, 0.9 kcal/mol (N2 probe and N3 reverse within 0.15). Primer3 also
+# counts dangling ends and loops. The limits below are set on THIS method,
+# using the CDC assays (test case T14).
+#   most stable dimer of any kind: N2 probe with itself, -7.0 kcal/mol
 #   most stable dimer with a primer's 3' end paired: N2 forward on the
-#   probe, -3.1 kcal/mol
+#   probe, -3.6 kcal/mol
 # Rules (a design breaking either is flagged):
 #   any dimer                  dG(37 C) >= -9 kcal/mol (the common guideline)
 #   a primer's 3' end paired   dG(37 C) >= -5 kcal/mol (it can be extended)
@@ -644,7 +668,8 @@ def dimer_scan(a, b, conditions=CONDITIONS, temp_c=DIMER_TEMP_C, extendable=(Tru
 
     extendable = (a's 3' end counts, b's 3' end counts) for the 3'-end search.
     Returns {"any": region, "three_prime": region or None}, each region
-    {"dG", "dH", "dS", "top", "bottom", "a_start", "b_start", "length"}.
+    {"dG", "dH", "dS", "top", "bottom", "a_start", "b_start", "length"}
+    (top/bottom include a terminal mismatch at either end if there is one).
     """
     below = b[::-1]                          # b written 3'->5' under a
     best_any = best_end = None
@@ -657,8 +682,14 @@ def dimer_scan(a, b, conditions=CONDITIONS, temp_c=DIMER_TEMP_C, extendable=(Tru
         for start in range(first, last):
             if not paired[start - first]:
                 continue
+            # a mismatch just before the region adds a terminal-mismatch stack
+            # (read from the other strand, as in duplex_energy)
+            left = None
+            if start - 1 >= first and not paired[start - 1 - first]:
+                left = TERMINAL_MISMATCH[f"{below[start - offset]}{below[start - 1 - offset]}/"
+                                         f"{a[start]}{a[start - 1]}"]
             # grow the region one base at a time; the stacks are summed left
-            # to right as in duplex_energy, so the numbers are the same
+            # to right as in duplex_energy
             dh = ds = 0.0
             for k in range(start, last - 1):
                 this, nxt = paired[k - first], paired[k + 1 - first]
@@ -670,27 +701,42 @@ def dimer_scan(a, b, conditions=CONDITIONS, temp_c=DIMER_TEMP_C, extendable=(Tru
                 if not nxt:
                     continue                 # a region must end with a pair
                 end = k + 1
-                top, bottom = a[start:end + 1], below[start - offset:end - offset + 1]
-                region_dh, region_ds = dh, ds
-                for base in (top[0], top[-1]):
+                right = None
+                if end + 1 < last and not paired[end + 1 - first]:
+                    right = TERMINAL_MISMATCH[f"{a[end:end + 2]}/{below[end - offset:end - offset + 2]}"]
+                init_dh = init_ds = 0.0
+                for base in (a[start], a[end]):
                     init = MATCHED["init_w_term_GC"] if base in "GC" else MATCHED["init_w_term_AT"]
-                    region_dh, region_ds = region_dh + init[0], region_ds + init[1]
-                if all(paired[start - first:end - first + 1]) and top == reverse_complement(top):
-                    region_dh += MATCHED["symmetry_correction"][0]
-                    region_ds += MATCHED["symmetry_correction"][1]
+                    init_dh, init_ds = init_dh + init[0], init_ds + init[1]
                 length = end - start + 1
-                dg = 1000 * region_dh - kelvin * (region_ds + 0.368 * (length - 1) * log_salt)
-                if best_any is not None and dg >= best_any["dG"] and not (
-                        (extendable[0] and end == len(a) - 1) or (extendable[1] and start - offset == 0)):
-                    continue
-                region = {"dG": dg, "dH": region_dh, "dS": region_ds, "top": top, "bottom": bottom,
-                          "a_start": start, "b_start": len(b) - 1 - (end - offset), "length": length}
-                if best_any is None or dg < best_any["dG"]:
-                    best_any = region
                 a_end = extendable[0] and end == len(a) - 1
                 b_end = extendable[1] and start - offset == 0
-                if (a_end or b_end) and (best_end is None or dg < best_end["dG"]):
-                    best_end = region
+                # the region alone, and with each available end mismatch
+                for use_left in ((False, True) if left else (False,)):
+                    for use_right in ((False, True) if right else (False,)):
+                        region_dh, region_ds = 0.0, 0.0
+                        if use_left:
+                            region_dh, region_ds = left
+                        region_dh, region_ds = region_dh + dh, region_ds + ds
+                        if use_right:
+                            region_dh, region_ds = region_dh + right[0], region_ds + right[1]
+                        region_dh, region_ds = region_dh + init_dh, region_ds + init_ds
+                        lo, hi = start - use_left, end + use_right
+                        top, bottom = a[lo:hi + 1], below[lo - offset:hi - offset + 1]
+                        if (not use_left and not use_right and all(paired[start - first:end - first + 1])
+                                and top == reverse_complement(top)):
+                            region_dh += MATCHED["symmetry_correction"][0]
+                            region_ds += MATCHED["symmetry_correction"][1]
+                        dg = 1000 * region_dh - kelvin * (region_ds + 0.368 * (length - 1) * log_salt)
+                        if best_any is not None and dg >= best_any["dG"] and not (a_end or b_end):
+                            continue
+                        region = {"dG": dg, "dH": region_dh, "dS": region_ds, "top": top,
+                                  "bottom": bottom, "a_start": lo,
+                                  "b_start": len(b) - 1 - (hi - offset), "length": length}
+                        if best_any is None or dg < best_any["dG"]:
+                            best_any = region
+                        if (a_end or b_end) and (best_end is None or dg < best_end["dG"]):
+                            best_end = region
     return {"any": best_any, "three_prime": best_end}
 
 
@@ -725,3 +771,128 @@ def dimer_check(oligos, conditions=CONDITIONS, cache=None):
                                 f"{end['dG'] / 1000:.1f} kcal/mol (more stable than "
                                 f"{DIMER_3END_MAX_DG / 1000:.0f}): it can be extended into a primer-dimer")
     return dimers, problems
+
+
+
+# =============================================================================
+# SECTION 11: HAIRPINS   (added in version 4)
+# -----------------------------------------------------------------------------
+# An oligo can fold back on itself: a stretch near one end pairs with a
+# stretch further along, antiparallel, closing a loop of unpaired bases:
+#
+#        5'-...A C G T T  -> loop
+#                | | | |       (at least 3 bases)
+#        3'-...  T G C A  <-
+#
+# A folded primer is not free to bind its template, and if the 3' end is in
+# the stem the primer can prime itself (the polymerase copies its own 5'
+# part).
+#
+# Energy (SantaLucia & Hicks 2004), at 37 C:
+#   stem    nearest-neighbor stacks of the paired stretch (MATCHED); the stem
+#           must be perfectly paired in this version
+#   ends    a stem pair that is A-T at the stem's open end, or closing a
+#           3-base loop, pays the terminal A-T penalty (init_w_term_AT -
+#           init_w_term_GC, the difference between the two initiation rows)
+#   loop    the hairpin loop penalty, entropy only (dH = 0), from
+#           santalucia_hicks_2004_loops.tsv; loops of 4+ bases also get a
+#           terminal mismatch stack (the first two loop bases facing each
+#           other) from the terminal-mismatch table
+#   no initiation term: the two halves are already on one strand
+#   salt    the same entropy correction as for duplexes, by stem pairs
+# Hairpin Tm = 1000 * dH / dS (one strand, so no concentration term).
+#
+# Compared with Primer3's hairpin dG for the CDC oligos, these are 0.4-1.0
+# kcal/mol less stable (Primer3 uses hairpin-specific terminal-mismatch and
+# dangling-end values), but the order is the same: N1 reverse is the most
+# stable in both (Primer3 -1.6, here -1.0). Limits set on the CDC assays
+# (test case T17), whose most stable hairpin is -1.0 kcal/mol:
+#   any hairpin               dG(37 C) >= -3 kcal/mol (the common guideline)
+#   a primer's 3' end in the stem   dG(37 C) >= -2 kcal/mol (self-priming)
+# =============================================================================
+
+HAIRPIN_MIN_LOOP = 3
+HAIRPIN_MAX_DG = -3000.0          # cal/mol
+HAIRPIN_3END_MAX_DG = -2000.0     # cal/mol
+TERMINAL_AT_PENALTY = (MATCHED["init_w_term_AT"][0] - MATCHED["init_w_term_GC"][0],
+                       MATCHED["init_w_term_AT"][1] - MATCHED["init_w_term_GC"][1])
+
+
+def hairpin_scan(oligo, conditions=CONDITIONS, temp_c=DIMER_TEMP_C):
+    """The most stable hairpin of one oligo (5'->3'), or None if it cannot fold.
+
+    Returns {"dG", "dH", "dS", "tm", "stem_5", "stem_3", "loop", "outer", "three_prime"}:
+    stem_5 = oligo[outer[0]:...] pairs with stem_3, loop = the unpaired bases,
+    three_prime = True if the oligo's last base is in the stem.
+    """
+    n = len(oligo)
+    log_salt = math.log(equivalent_sodium_molar(conditions))
+    kelvin = temp_c + 273.15
+    best = None
+    for i in range(n):
+        for j in range(n - 1, i + HAIRPIN_MIN_LOOP, -1):
+            if oligo[j] != COMPLEMENT.get(oligo[i]):
+                continue
+            # the stem's open end: (i, j)
+            dh = ds = 0.0
+            if oligo[i] in "AT":
+                dh, ds = dh + TERMINAL_AT_PENALTY[0], ds + TERMINAL_AT_PENALTY[1]
+            inner_i, inner_j = i, j            # the innermost stem pair so far
+            while True:
+                loop = inner_j - inner_i - 1
+                if loop >= HAIRPIN_MIN_LOOP:
+                    loop_dh, loop_ds = 0.0, HAIRPIN_LOOP_DS[min(loop, max(HAIRPIN_LOOP_DS))]
+                    if loop == 3:
+                        if oligo[inner_i] in "AT":
+                            loop_dh, loop_ds = loop_dh + TERMINAL_AT_PENALTY[0], loop_ds + TERMINAL_AT_PENALTY[1]
+                    else:
+                        # closing pair, then the first loop bases facing each other
+                        key = f"{oligo[inner_i]}{oligo[inner_i + 1]}/{oligo[inner_j]}{oligo[inner_j - 1]}"
+                        value = TERMINAL_MISMATCH.get(key)
+                        if value is not None:
+                            loop_dh, loop_ds = loop_dh + value[0], loop_ds + value[1]
+                    pairs = inner_i - i + 1
+                    total_dh = dh + loop_dh
+                    total_ds = ds + loop_ds + 0.368 * (pairs - 1) * log_salt
+                    dg = 1000 * total_dh - kelvin * total_ds
+                    if best is None or dg < best["dG"]:
+                        best = {"dG": dg, "dH": total_dh, "dS": total_ds,
+                                "tm": (1000 * total_dh / total_ds - 273.15) if total_ds < 0 else None,
+                                "stem_5": oligo[i:inner_i + 1], "stem_3": oligo[inner_j:j + 1],
+                                "loop": oligo[inner_i + 1:inner_j], "outer": (i, j),
+                                "three_prime": j == n - 1}
+                # grow the stem inward if the next bases pair and a loop still fits
+                if inner_j - inner_i - 1 < HAIRPIN_MIN_LOOP + 2:
+                    break
+                if oligo[inner_j - 1] != COMPLEMENT.get(oligo[inner_i + 1]):
+                    break
+                value = stack_value(oligo[inner_i:inner_i + 2],
+                                    oligo[inner_j] + oligo[inner_j - 1], MATCHED)
+                dh, ds = dh + value[0], ds + value[1]
+                inner_i, inner_j = inner_i + 1, inner_j - 1
+    return best
+
+
+def hairpin_check(oligos, conditions=CONDITIONS, cache=None):
+    """The most stable hairpin of each {name: seq}; returns (hairpins, problems).
+    A probe's 3' end does not count (TaqMan probes are blocked there)."""
+    hairpins, problems = {}, []
+    for name, seq in oligos.items():
+        if cache is not None and seq in cache:
+            fold = cache[seq]
+        else:
+            fold = hairpin_scan(seq, conditions)
+            if cache is not None:
+                cache[seq] = fold
+        hairpins[name] = fold
+        if fold is None:
+            continue
+        if fold["dG"] < HAIRPIN_MAX_DG:
+            problems.append(f"{name} hairpin: {len(fold['stem_5'])} bp stem, loop {len(fold['loop'])}, "
+                            f"dG {fold['dG'] / 1000:.1f} kcal/mol (more stable than "
+                            f"{HAIRPIN_MAX_DG / 1000:.0f}): it folds instead of binding")
+        if name != "probe" and fold["three_prime"] and fold["dG"] < HAIRPIN_3END_MAX_DG:
+            problems.append(f"{name} hairpin with its 3' end in the stem: dG {fold['dG'] / 1000:.1f} "
+                            f"kcal/mol (more stable than {HAIRPIN_3END_MAX_DG / 1000:.0f}): "
+                            f"it can prime itself")
+    return hairpins, problems

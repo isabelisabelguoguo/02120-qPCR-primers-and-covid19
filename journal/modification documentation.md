@@ -860,7 +860,7 @@ once per run: 2.1 s.
 
 ## Log 15 · 2026-11-20 · A public website, and the Omicron spike gene
 
-**Commit:** `c7886a0` (#69), then #70 (filled in at the next update)
+**Commit:** `c7886a0` (#69), `a5cba54` (#70)
 
 **#69. Problem:** the websites are claude.ai artifacts, which cannot be
 shared outside the organization.
@@ -892,6 +892,69 @@ Omicron; V2 design 1 (probe covers ins214EPE, GAGCCAGAA) gives no product
 off Omicron; NCBI's 10 work on all four. 8 of NCBI's 10 products rank
 higher in V2's list than in V1's (e.g. 187 vs 9,507).
 
+## Log 16 · 2026-11-20 · Hairpins, Version 3, and primers that work on every variant
+
+**Commit:** filled in at the next update
+
+**#71. Problem:** dimer energies were 2.2 kcal/mol weaker than Primer3's on
+average, and hairpins were not modelled.
+**Fix:** second model version 4. `dimer_scan` adds a terminal mismatch
+(`TERMINAL_MISMATCH`) just outside either end of each paired region (only
+a paired 3' end counts as extendable); mean gap from Primer3's homodimer dG
+0.87 kcal/mol (test T19). New Section 11: `hairpin_scan` (perfect stem of
+`MATCHED` stacks, terminal A-T penalty at the open end and for 3-base
+loops, hairpin loop dS from new `data/thermodynamics/santalucia_hicks_2004_loops.tsv`
+(SantaLucia & Hicks 2004, via Primer3's loops.ds; dH 0), terminal mismatch
+at the loop for loops >= 4, salt by stem pairs, Tm = dH/dS) and
+`hairpin_check` (limits `HAIRPIN_MAX_DG` -3, `HAIRPIN_3END_MAX_DG` -2
+kcal/mol; probe 3' end ignored). Primer3 comparison: 0.4-1.0 kcal/mol
+weaker, same order (N1 reverse most stable, -1.0 vs Primer3 -1.6). CDC
+dimers now -7.0 / -3.6 at a 3' end (limits unchanged). Tests T13 (redone
+with terminal mismatches, -5902.5 cal/mol), T14, T17 (hairpin by hand,
+-1449.1 cal/mol), T18, T19. Designer version 6: `hairpin_check` before
+`dimer_check` (`hairpin_rejected`); case 23. N gene design 1 changes: the
+CAG-repeat reverse/probe dimer is now -9.2 kcal/mol.
+
+**#72. Problem:** Version 2 of the website had gained dimers, conditions
+and hairpins; the user wanted it kept as temperature only, with a new
+version for the structure checks.
+**Fix:** `design_primers(structure_checks=False)` and `designPrimers(...,
+structureChecks)`. `website_temperature/` = Version 2 (temperature only,
+CDC conditions); new `website_structures/` = Version 3, "Structure-Aware
+Primer Designer" (https://claude.ai/artifact/J4B9pWGJaxSc9vZeFYtKw4), with
+the conditions panel and dimer/hairpin rows. Footers link all three;
+`.github/build_pages.py` adds the third site and a third home-page card;
+README lists all three. `check_website_port.py` checks three sites
+(35 + 51 + 51 identical). Designer case 24.
+
+**#73. Problem:** the CDC primers had not been compared with NCBI BLAST on
+the variants, and there was no real Alpha genome (#42).
+**Fix:** `data/variants/Alpha_B.1.1.7_OL461702.1.fasta` (NCBI; checked for
+N501Y, A570D, P681H, T716I, S982A, D1118H, ORF8 Q27*, N D3L, N S235F,
+spike del69-70 and del144). `journal/compare_variants_cdc.py`: Part 1 runs
+`run_temperature_model` and two-sequence BLAST (`data/ncbi_blast/cdc_vs_*.tsv`)
+for N1-N3 on reference, Alpha, Beta, Omicron: 36 of 36 same site and
+mismatch count (IUPAC Y counted as a match); only the Omicron N1 probe has
+a mismatch (22 from 3', dTm -6.8 C). Part 2 runs the three versions on each
+N gene (`n_gene` finds the ends with <= 3 mismatches; Alpha D3L changes the
+first 30 bases) and tests each design on all four genomes: Version 1 5/12,
+Version 2 7/12, Version 3 4/12 work on all four; CDC 3/3. Written up in
+`test_cases_web_specificity.txt`, part E.
+
+**#74. Problem:** why do some designs fail on variants, and how can the
+working ones rank first?
+**Fix:** analysis: every failing design has an oligo not found exactly in
+some variant; failures cluster at N-gene hotspots (first ~80 bases, ~600,
+~930); GC (53 vs 52 %) and product length (62 vs 62 bp) do not differ.
+New `rank_by_conservation` (Section 3c) and `design_primers(other_genomes=
+{...})`: `variation` = number of other genomes missing any oligo exactly
+(either strand); designs sorted by (variation, penalty, start). With all
+five genomes: 12 of 12 top designs work on all five (Version 3: 4 of 12).
+Held-out test (reference + Alpha, Beta, Delta given, Omicron not): 2 of 3
+work on Omicron either way; the failure sits on Omicron's new 9-base
+deletion. One conserved design overlaps CDC N3. Not yet on the website or
+covered by tests.
+
 ---
 
 ## Still open (known limits after version 4)
@@ -905,7 +968,8 @@ higher in V2's list than in V1's (e.g. 187 vs 9,507).
 - The k-mer index is rebuilt on every run; the test suite takes ~10 s.
 - The mismatch allowance can only be changed in the code.
 - Variants checked with one isolate each (#33).
-- No real Alpha (B.1.1.7) genome: the file saved as Alpha was Beta (#42).
+- Alpha (B.1.1.7): the first file was Beta (#42); a real Alpha genome was added
+  in #73 (OL461702.1).
 - Severity still does not change "binds"; only a HIGH 3' risk changes the
   product status, to "at risk" (#41). Mild mismatches near the 3' end and
   severe ones elsewhere are warnings only.
@@ -916,8 +980,11 @@ higher in V2's list than in V1's (e.g. 187 vs 9,507).
 - The variant checks still use 250 nM for every oligo (the Primer3
   reference); the designer uses the CDC's 500 nM primers and 125 nM probe
   (#64).
-- Hairpins are not modelled. Primer dimers are (#67), but without dangling
-  ends or loops, so dG is 1-4 kcal/mol weaker than Primer3's.
+- Hairpins (#71) use perfect stems only; dimers (#67, #71) have no dangling
+  ends or loops. Hairpins are 0.4-1.0 and dimers ~0.9 kcal/mol weaker than
+  Primer3's.
+- The designer sees one genome unless `other_genomes` is given (#74), and
+  even then cannot foresee brand-new mutations.
 - Primer design (#47-#57, #65): it does not reproduce the CDC designs;
   never proposes degenerate bases (CDC N3 probe has a Y); no hairpin check;
   RNase P not checked (needs the human RPP30 segment from NCBI). Low-GC
@@ -925,10 +992,52 @@ higher in V2's list than in V1's (e.g. 187 vs 9,507).
 - Our model checks one genome; BLAST shows N gene primers also match
   related coronaviruses (#63).
 
+## How sure can we be that a design works? (caveats)
+Computational checks raise confidence; they do not prove a design works.
+
+**Checked:**
+- Specificity: exactly one product on the given genome (first model), and
+  no product on the human genome (Primer-BLAST, #63).
+- Temperature: primer Tm annealing + 6 to + 13 C, primers within 4 C, probe
+  2 C above, product <= 90 C (#64); limits set on the CDC assays, which pass.
+- Tm agrees with Primer3 (0.01 C, #43) and Primer-BLAST (0.005 C, #63).
+- Primer dimers: no dimer below -9 kcal/mol, none at a primer 3' end below
+  -5 (#67).
+- Agreement with Primer-BLAST: same regions, lengths about one base apart
+  (#63, #70).
+- The model reproduces the CDC N1/N2/N3 products on the reference genome.
+
+**Not checked:**
+- Hairpins with imperfect stems (perfect stems are checked since #71).
+- RNA secondary structure at the binding site, which can block the primer
+  or the reverse-transcription step.
+- Sequence variation inside a variant: one genome per variant was tested;
+  real samples carry many slightly different sequences.
+- Other organisms in a swab (other respiratory viruses, bacteria): only the
+  human genome and core_nt BLAST were checked.
+- Amplification efficiency, detection limit and Ct: only experiments
+  measure them.
+
+**Lab validation a design would need:**
+1. Order the primers, probe, and a synthetic template (e.g. a gBlock) of
+   the target region.
+2. Standard curve: tenfold dilutions; efficiency 90-110 %, R^2 > 0.98.
+3. One product: melt curve or gel shows a single band of the expected size.
+4. No-template controls stay flat (no primer dimers or contamination).
+5. Specificity panel: human DNA and related viruses (other coronaviruses,
+   influenza, RSV) give no signal.
+6. Detection limit with real samples, run side by side with CDC N1.
+
+**Computational next steps that raise confidence:** check designs on many
+variant genomes (NCBI Virus); Primer-BLAST against a virus database for
+cross-reactivity; hairpins and fuller dimer energies (done, #71); conservation across variants (#74).
+
 ## Planned (not built yet)
-- **Primer design, next:** check each design on several variant genomes and
-  keep only those that match all (#70); report each published design's
-  rank; hairpins; expected results for the Version 2 website. (NCBI comparison and Tm on the website: done, #62-#66.)
+- **Version 4 of the website (next):** Version 3 plus conservation ranking
+  across built-in variant genomes (#74); then ways to guard against
+  brand-new mutations (many more genomes, avoiding hotspots, Tm margin for
+  one mismatch, two targets per test). (Done: NCBI comparison and Tm on
+  the website, #62-#66; variant comparison, #73.)
 Factor 2's basic plan (nearest-neighbor Tm, Primer3's salt correction,
 mismatch parameters, comparison with the 55 C annealing step, fraction
 bound) was built in Log 9 (#43-#45). Still to do for it:

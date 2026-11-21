@@ -2,10 +2,11 @@ TROUBLESHOOTING
 ===============
 One line per problem overcome, in five parts:
   PART 1  first_model_factor_specificity.py  (#1-#46)
-  PART 2  primer_design.py                   (#47-#57, #61, #65, #68)
-  PART 3  the websites (website/, website_temperature/)  (#59-#60, #66, #69)
-  PART 4  second_model_annealing_temp.py     (#64, #67)
-  PART 5  comparison with NCBI               (#62-#63, #70)
+  PART 2  primer_design.py                   (#47-#57, #61, #65, #68, #74)
+  PART 3  the websites (website/, website_temperature/, website_structures/)
+                                             (#59-#60, #66, #69, #72)
+  PART 4  second_model_annealing_temp.py     (#64, #67, #71)
+  PART 5  comparison with NCBI               (#62-#63, #70, #73)
 Numbers match modification documentation.md, which has the full details.
 
 "Functions:" lists the functions each fix changed or is directly about.
@@ -217,6 +218,12 @@ TESTING AND REAL DATA
       Functions: dimer_scan, dimer_check (second_model_annealing_temp.py);
                  dimerScan, dimerCheck (website_temperature/primer_design.js);
                  design_primers, cases 21-22 (test_primer_design.py)
+- #74 About half the designs failed on some variant, and nothing in GC, Tm
+      or product length told them apart -> the pattern is conservation:
+      every failing design had an oligo that does not match some variant
+      exactly. Given other genomes, designs that match all of them now rank
+      first (12 of 12 work on every variant, from 4 of 12).
+      Functions: rank_by_conservation, design_primers (other_genomes)
 
 PART 3: THE WEBSITES (website/, website_temperature/)
 =====================================================
@@ -253,6 +260,14 @@ Version 1 is website/ (GC only); Version 2 is website_temperature/.
       copies.
       Functions: build (.github/build_pages.py);
                  .github/workflows/pages.yml
+- #72 Version 2 had gained dimers, hairpins and the conditions panel, but
+      it should stay temperature only -> a structure_checks switch, Version 2
+      back to temperature only, and a new Version 3 (website_structures/)
+      with everything; all three link to each other and are checked.
+      Functions: design_primers (structure_checks); designPrimers
+                 (structureChecks); site_cases, SITES
+                 (journal/check_website_port.py); build
+                 (.github/build_pages.py)
 
 (Not listed: the save_journal.py stdin hang, a process problem, not the
 model; see Log 13 in modification documentation.md.)
@@ -279,6 +294,16 @@ PART 4: SECOND MODEL (second_model_annealing_temp.py)
                  QPCR_CONDITIONS; case_dimer_by_hand, case_cdc_dimers,
                  case_bad_dimer, case_user_conditions
                  (test_second_model_annealing_temp.py)
+- #71 Dimer energies were 2.2 kcal/mol weaker than Primer3's, and hairpins
+      were missing -> dimers count a terminal mismatch at each end (gap now
+      0.9 kcal/mol); hairpins added with SantaLucia & Hicks loop penalties
+      (limits -3, and -2 with a primer's 3' end in the stem).
+      Functions: dimer_scan, hairpin_scan, hairpin_check,
+                 read_loop_table, assay_temperature_check; dimerScan,
+                 hairpinScan, hairpinCheck (website_structures/primer_design.js);
+                 case_hairpin_by_hand, case_hairpin_rules,
+                 case_dimer_terminal_mismatch
+                 (test_second_model_annealing_temp.py)
 
 
 PART 5: COMPARISON WITH NCBI (compare_ncbi_blast.py)
@@ -303,4 +328,10 @@ PART 5: COMPARISON WITH NCBI (compare_ncbi_blast.py)
       designs made on one genome can sit on that variant's own mutations.
       Functions: genomes, report (journal/compare_omicron_spike.py);
                  primer_blast_designs (journal/compare_ncbi_blast.py)
+- #73 No real Alpha genome (#42), and Alpha's D3L change hid the N gene's
+      start from an exact search -> a patient-sample Alpha genome from NCBI,
+      checked for all nine signature changes and both spike deletions; the
+      N gene found by the closest match with up to 3 mismatches.
+      Functions: load_genomes, closest, n_gene, blast_best_site, part1,
+                 part2 (journal/compare_variants_cdc.py)
 

@@ -3,14 +3,15 @@
 // =============================================================================
 // 02-120 project: Do early SARS-CoV-2 qPCR primers still match later variants?
 //
-// TEMPERATURE VERSION: website_temperature/ (website/ keeps the GC-only
-// version 3 designer).
+// VERSION 2 (temperature): website_temperature/. The page calls
+// designPrimers with structureChecks = false. website/ is Version 1 (GC
+// only); website_structures/ is Version 3 (with dimers and hairpins).
 //
 // A browser cannot run Python, so this file translates, function by function,
 //   - journal/primer_design.py (version 4: with temperature), all of it,
-//   - the perfect-match Tm, the qPCR temperature rules and the primer-dimer
-//     scan of journal/second_model_annealing_temp.py (version 3, Sections
-//     1-4, 9, 10), and
+//   - the perfect-match Tm, the qPCR temperature rules, the primer-dimer
+//     scan and the hairpin scan of journal/second_model_annealing_temp.py
+//     (version 4, Sections 1-4, 9, 10, 11), and
 //   - the parts of journal/first_model_factor_specificity.py it uses:
 //     the k-mer index, find_binding_sites, find_indel_sites,
 //     pair_into_products, probe_inside, product_status and their helpers.
@@ -66,6 +67,10 @@
   const R = 1.9872;   // gas constant, cal/(K*mol)
 
   // data/thermodynamics/allawi_santalucia_internal_mismatch_nn.tsv (51 stacks)
+  // data/thermodynamics/santalucia_peyret_terminal_mismatch_nn.tsv
+  const TERMINAL_MISMATCH = {"AA/TA": [-3.1, -7.8], "TA/AA": [-2.5, -6.3], "CA/GA": [-4.3, -10.7], "GA/CA": [-8.0, -22.5], "AC/TC": [-0.1, 0.5], "TC/AC": [-0.7, -1.3], "CC/GC": [-2.1, -5.1], "GC/CC": [-3.9, -10.6], "AG/TG": [-1.1, -2.1], "TG/AG": [-1.1, -2.7], "CG/GG": [-3.8, -9.5], "GG/CG": [-0.7, -19.2], "AT/TT": [-2.4, -6.5], "TT/AT": [-3.2, -8.9], "CT/GT": [-6.1, -16.9], "GT/CT": [-7.4, -21.2], "AA/TC": [-1.6, -4.0], "AC/TA": [-1.8, -3.8], "CA/GC": [-2.6, -5.9], "CC/GA": [-2.7, -6.0], "GA/CC": [-5.0, -13.8], "GC/CA": [-3.2, -7.1], "TA/AC": [-2.3, -5.9], "TC/AA": [-2.7, -7.0], "AC/TT": [-0.9, -1.7], "AT/TC": [-2.3, -6.3], "CC/GT": [-3.2, -8.0], "CT/GC": [-3.9, -10.6], "GC/CT": [-4.9, -13.5], "GT/CC": [-3.0, -7.8], "TC/AT": [-2.5, -6.3], "TT/AC": [-0.7, -1.2], "AA/TG": [-1.9, -4.4], "AG/TA": [-2.5, -5.9], "CA/GG": [-3.9, -9.6], "CG/GA": [-6.0, -15.5], "GA/CG": [-4.3, -11.1], "GG/CA": [-4.6, -11.4], "TA/AG": [-2.0, -4.7], "TG/AA": [-2.4, -5.8], "AG/TT": [-3.2, -8.7], "AT/TG": [-3.5, -9.4], "CG/GT": [-3.8, -9.0], "CT/GG": [-6.6, -18.7], "GG/CT": [-5.7, -15.9], "GT/CG": [-5.9, -16.1], "TG/AT": [-3.9, -10.5], "TT/AG": [-3.6, -9.8]};
+  // data/thermodynamics/santalucia_hicks_2004_loops.tsv, hairpin loop dS (dH = 0)
+  const HAIRPIN_LOOP_DS = {"1": -1.0, "2": -1.0, "3": -11.28, "4": -11.28, "5": -10.64, "6": -12.89, "7": -13.54, "8": -13.86, "9": -14.5, "10": -14.83, "11": -15.29, "12": -16.12, "13": -16.5, "14": -16.44, "15": -16.77, "16": -17.08, "17": -17.38, "18": -17.73, "19": -17.99, "20": -18.37, "21": -18.61, "22": -18.84, "23": -19.05, "24": -19.26, "25": -19.66, "26": -19.85, "27": -20.04, "28": -20.21, "29": -20.38, "30": -20.31};
   const INTERNAL_MISMATCH = {"AG/TT": [1.0, 0.9], "AT/TG": [-2.5, -8.3], "CG/GT": [-4.1, -11.7], "CT/GG": [-2.8, -8.0], "GG/CT": [3.3, 10.4], "GG/TT": [5.8, 16.3], "GT/CG": [-4.4, -12.3], "GT/TG": [4.1, 9.5], "TG/AT": [-0.1, -1.7], "TG/GT": [-1.4, -6.2], "TT/AG": [-1.3, -5.3], "AA/TG": [-0.6, -2.3], "AG/TA": [-0.7, -2.3], "CA/GG": [-0.7, -2.3], "CG/GA": [-4.0, -13.2], "GA/CG": [-0.6, -1.0], "GG/CA": [0.5, 3.2], "TA/AG": [0.7, 0.7], "TG/AA": [3.0, 7.4], "AC/TT": [0.7, 0.2], "AT/TC": [-1.2, -6.2], "CC/GT": [-0.8, -4.5], "CT/GC": [-1.5, -6.1], "GC/CT": [2.3, 5.4], "GT/CC": [5.2, 13.5], "TC/AT": [1.2, 0.7], "TT/AC": [1.0, 0.7], "AA/TC": [2.3, 4.6], "AC/TA": [5.3, 14.6], "CA/GC": [1.9, 3.7], "CC/GA": [0.6, -0.6], "GA/CC": [5.2, 14.2], "GC/CA": [-0.7, -3.8], "TA/AC": [3.4, 8.0], "TC/AA": [7.6, 20.2], "AA/TA": [1.2, 1.7], "CA/GA": [-0.9, -4.2], "GA/CA": [-2.9, -9.8], "TA/AA": [4.7, 12.9], "AC/TC": [0.0, -4.4], "CC/GC": [-1.5, -7.2], "GC/CC": [3.6, 8.9], "TC/AC": [6.1, 16.4], "AG/TG": [-3.1, -9.5], "CG/GG": [-4.9, -15.3], "GG/CG": [-6.0, -15.8], "TG/AG": [1.6, 3.6], "AT/TT": [-2.7, -10.8], "CT/GT": [-5.0, -15.8], "GT/CT": [-2.2, -8.4], "TT/AT": [0.2, -1.5]};
 
   // the second model's user settings
@@ -86,6 +91,11 @@
   const DIMER_TEMP_C = 37.0;
   const DIMER_MAX_DG = -9000.0;
   const DIMER_3END_MAX_DG = -5000.0;
+  const HAIRPIN_MIN_LOOP = 3;
+  const HAIRPIN_MAX_DG = -3000.0;
+  const HAIRPIN_3END_MAX_DG = -2000.0;
+  const TERMINAL_AT_PENALTY = [MATCHED.init_w_term_AT[0] - MATCHED.init_w_term_GC[0],
+                               MATCHED.init_w_term_AT[1] - MATCHED.init_w_term_GC[1]];
 
   // stack_value
   function stackValue(top, bottom, table = MATCHED) {
@@ -152,7 +162,7 @@
     return [dh, ds];
   }
 
-  // dimer_scan
+  // dimer_scan (with a terminal mismatch at either end, version 4)
   function dimerScan(a, b, conditions, tempC = DIMER_TEMP_C, extendable = [true, true]) {
     const below = b.split("").reverse().join("");
     let bestAny = null, bestEnd = null;
@@ -164,6 +174,10 @@
       for (let i = first; i < last; i++) paired.push(below[i - offset] === COMPLEMENT[a[i]]);
       for (let start = first; start < last; start++) {
         if (!paired[start - first]) continue;
+        let left = null;
+        if (start - 1 >= first && !paired[start - 1 - first]) {
+          left = TERMINAL_MISMATCH[below[start - offset] + below[start - 1 - offset] + "/" + a[start] + a[start - 1]];
+        }
         let dh = 0.0, ds = 0.0;
         for (let k = start; k < last - 1; k++) {
           const here = paired[k - first], next = paired[k + 1 - first];
@@ -174,32 +188,111 @@
           ds += value[1];
           if (!next) continue;
           const end = k + 1;
-          const top = a.slice(start, end + 1), bottom = below.slice(start - offset, end - offset + 1);
-          let regionDh = dh, regionDs = ds;
-          for (const base of [top[0], top[top.length - 1]]) {
-            const init = "GC".includes(base) ? MATCHED.init_w_term_GC : MATCHED.init_w_term_AT;
-            regionDh += init[0];
-            regionDs += init[1];
+          let right = null;
+          if (end + 1 < last && !paired[end + 1 - first]) {
+            right = TERMINAL_MISMATCH[a.slice(end, end + 2) + "/" + below.slice(end - offset, end - offset + 2)];
           }
-          let allPaired = true;
-          for (let p = start; p <= end; p++) if (!paired[p - first]) { allPaired = false; break; }
-          if (allPaired && top === reverseComplement(top)) {
-            regionDh += MATCHED.symmetry_correction[0];
-            regionDs += MATCHED.symmetry_correction[1];
+          let initDh = 0.0, initDs = 0.0;
+          for (const base of [a[start], a[end]]) {
+            const init = "GC".includes(base) ? MATCHED.init_w_term_GC : MATCHED.init_w_term_AT;
+            initDh += init[0];
+            initDs += init[1];
           }
           const length = end - start + 1;
-          const dg = 1000 * regionDh - kelvin * (regionDs + 0.368 * (length - 1) * logSalt);
           const aEnd = extendable[0] && end === a.length - 1;
           const bEnd = extendable[1] && start - offset === 0;
-          if (bestAny !== null && dg >= bestAny.dG && !(aEnd || bEnd)) continue;
-          const region = { dG: dg, dH: regionDh, dS: regionDs, top, bottom, a_start: start,
-                           b_start: b.length - 1 - (end - offset), length };
-          if (bestAny === null || dg < bestAny.dG) bestAny = region;
-          if ((aEnd || bEnd) && (bestEnd === null || dg < bestEnd.dG)) bestEnd = region;
+          for (const useLeft of (left ? [false, true] : [false])) {
+            for (const useRight of (right ? [false, true] : [false])) {
+              let regionDh = 0.0, regionDs = 0.0;
+              if (useLeft) { regionDh = left[0]; regionDs = left[1]; }
+              regionDh += dh; regionDs += ds;
+              if (useRight) { regionDh += right[0]; regionDs += right[1]; }
+              regionDh += initDh; regionDs += initDs;
+              const lo = start - (useLeft ? 1 : 0), hi = end + (useRight ? 1 : 0);
+              const top = a.slice(lo, hi + 1), bottom = below.slice(lo - offset, hi - offset + 1);
+              if (!useLeft && !useRight) {
+                let allPaired = true;
+                for (let p = start; p <= end; p++) if (!paired[p - first]) { allPaired = false; break; }
+                if (allPaired && top === reverseComplement(top)) {
+                  regionDh += MATCHED.symmetry_correction[0];
+                  regionDs += MATCHED.symmetry_correction[1];
+                }
+              }
+              const dg = 1000 * regionDh - kelvin * (regionDs + 0.368 * (length - 1) * logSalt);
+              if (bestAny !== null && dg >= bestAny.dG && !(aEnd || bEnd)) continue;
+              const region = { dG: dg, dH: regionDh, dS: regionDs, top, bottom, a_start: lo,
+                               b_start: b.length - 1 - (hi - offset), length };
+              if (bestAny === null || dg < bestAny.dG) bestAny = region;
+              if ((aEnd || bEnd) && (bestEnd === null || dg < bestEnd.dG)) bestEnd = region;
+            }
+          }
         }
       }
     }
     return { any: bestAny, three_prime: bestEnd };
+  }
+
+  // hairpin_scan
+  function hairpinScan(oligo, conditions, tempC = DIMER_TEMP_C) {
+    const n = oligo.length;
+    const logSalt = Math.log(equivalentSodiumMolar(conditions));
+    const kelvin = tempC + 273.15;
+    const maxLoop = Math.max(...Object.keys(HAIRPIN_LOOP_DS).map(Number));
+    let best = null;
+    for (let i = 0; i < n; i++) {
+      for (let j = n - 1; j > i + HAIRPIN_MIN_LOOP; j--) {
+        if (oligo[j] !== COMPLEMENT[oligo[i]]) continue;
+        let dh = 0.0, ds = 0.0;
+        if ("AT".includes(oligo[i])) { dh += TERMINAL_AT_PENALTY[0]; ds += TERMINAL_AT_PENALTY[1]; }
+        let innerI = i, innerJ = j;
+        while (true) {
+          const loop = innerJ - innerI - 1;
+          if (loop >= HAIRPIN_MIN_LOOP) {
+            let loopDh = 0.0, loopDs = HAIRPIN_LOOP_DS[String(Math.min(loop, maxLoop))];
+            if (loop === 3) {
+              if ("AT".includes(oligo[innerI])) { loopDh += TERMINAL_AT_PENALTY[0]; loopDs += TERMINAL_AT_PENALTY[1]; }
+            } else {
+              const value = TERMINAL_MISMATCH[oligo[innerI] + oligo[innerI + 1] + "/" + oligo[innerJ] + oligo[innerJ - 1]];
+              if (value !== undefined) { loopDh += value[0]; loopDs += value[1]; }
+            }
+            const pairs = innerI - i + 1;
+            const totalDh = dh + loopDh;
+            const totalDs = ds + loopDs + 0.368 * (pairs - 1) * logSalt;
+            const dg = 1000 * totalDh - kelvin * totalDs;
+            if (best === null || dg < best.dG) {
+              best = { dG: dg, dH: totalDh, dS: totalDs,
+                       tm: totalDs < 0 ? 1000 * totalDh / totalDs - 273.15 : null,
+                       stem_5: oligo.slice(i, innerI + 1), stem_3: oligo.slice(innerJ, j + 1),
+                       loop: oligo.slice(innerI + 1, innerJ), outer: [i, j], three_prime: j === n - 1 };
+            }
+          }
+          if (innerJ - innerI - 1 < HAIRPIN_MIN_LOOP + 2) break;
+          if (oligo[innerJ - 1] !== COMPLEMENT[oligo[innerI + 1]]) break;
+          const value = stackValue(oligo.slice(innerI, innerI + 2), oligo[innerJ] + oligo[innerJ - 1], MATCHED);
+          dh += value[0];
+          ds += value[1];
+          innerI++;
+          innerJ--;
+        }
+      }
+    }
+    return best;
+  }
+
+  // hairpin_check
+  function hairpinCheck(oligos, conditions, cache = null) {
+    const hairpins = {}, problems = [];
+    for (const name of Object.keys(oligos)) {
+      const seq = oligos[name];
+      let fold;
+      if (cache !== null && cache.has(seq)) fold = cache.get(seq);
+      else { fold = hairpinScan(seq, conditions); if (cache !== null) cache.set(seq, fold); }
+      hairpins[name] = fold;
+      if (fold === null) continue;
+      if (fold.dG < HAIRPIN_MAX_DG) problems.push(`${name} hairpin`);
+      if (name !== "probe" && fold.three_prime && fold.dG < HAIRPIN_3END_MAX_DG) problems.push(`${name} 3' hairpin`);
+    }
+    return [hairpins, problems];
   }
 
   // dimer_check
@@ -914,7 +1007,8 @@
   // design_primers
   function designPrimers(genomeText, targetText, maxMismatches = 2, minProduct = PRODUCT_RANGE[0],
                          maxProduct = PRODUCT_RANGE[1], designsWanted = DESIGNS_WANTED,
-                         annealingC = ANNEALING_TEMP_C, conditions = QPCR_CONDITIONS) {
+                         annealingC = ANNEALING_TEMP_C, conditions = QPCR_CONDITIONS,
+                         structureChecks = true) {
     const genome = cleanSequence(genomeText);
     const target = cleanSequence(targetText);
     if (!genome) throw new Error("the genome box is empty");
@@ -961,16 +1055,18 @@
     const index = buildKmerIndex(genome, K);
     const cache = new Map();
     const chosen = [];
-    let checked = 0, dimerRejected = 0;
-    const dimerCache = new Map();
+    let checked = 0, dimerRejected = 0, hairpinRejected = 0;
+    const dimerCache = new Map(), hairpinCache = new Map();
     for (const design of designs) {
       if (chosen.length === designsWanted) break;
       if (chosen.some((d) => design.product_start < d.product_end && d.product_start < design.product_end)) continue;
-      if (annealingC !== null) {
-        const [dimers, problems] = dimerCheck(
-          { forward: design.forward.seq, reverse: design.reverse.seq, probe: design.probe.seq },
-          conditionsFor("forward", conditions), dimerCache);
+      if (annealingC !== null && structureChecks) {
+        const oligos = { forward: design.forward.seq, reverse: design.reverse.seq, probe: design.probe.seq };
+        const [hairpins, hairpinProblems] = hairpinCheck(oligos, conditionsFor("forward", conditions), hairpinCache);
+        if (hairpinProblems.length) { hairpinRejected++; continue; }
+        const [dimers, problems] = dimerCheck(oligos, conditionsFor("forward", conditions), dimerCache);
         if (problems.length) { dimerRejected++; continue; }
+        design.hairpins = hairpins;
         design.dimers = dimers;
       }
       checked++;
@@ -999,6 +1095,7 @@
       possible: designs.length,
       checked,
       dimer_rejected: dimerRejected,
+      hairpin_rejected: hairpinRejected,
       conditions: annealingC === null ? null : Object.assign({}, conditions),
       designs: chosen,
     };
@@ -1012,7 +1109,7 @@
   root.PrimerDesign = {
     designPrimers, gcFraction, gcPercent, reverseComplement, cleanSequence,
     perfectTm, productTm, conditionsFor, targetTm, dimerScan, QPCR_CONDITIONS, CONDITION_LIMITS,
-    DIMER_MAX_DG, DIMER_3END_MAX_DG,
+    DIMER_MAX_DG, DIMER_3END_MAX_DG, HAIRPIN_MAX_DG, HAIRPIN_3END_MAX_DG, hairpinScan,
     MAX_ALLOWED_MISMATCHES, PRODUCT_RANGE, MIN_PRODUCT, QPCR_PRODUCT, PRIMER_LENGTH, PROBE_LENGTH,
     ANNEALING_TEMP_C, ANNEALING_RANGE, PRIMER_TM_ABOVE_ANNEALING, PRIMER_TM_MAX_DIFFERENCE,
     PROBE_ABOVE_PRIMERS_C, DENATURATION_C, PRODUCT_BELOW_DENATURATION_C, PRIMER_NM, PROBE_NM,

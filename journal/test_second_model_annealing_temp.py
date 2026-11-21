@@ -1,5 +1,5 @@
 # =============================================================================
-# TESTS FOR: SECOND MODEL: FACTOR: ANNEALING TEMPERATURE   (version 3)
+# TESTS FOR: SECOND MODEL: FACTOR: ANNEALING TEMPERATURE   (version 4)
 # =============================================================================
 # The model lives in second_model_annealing_temp.py; this file only tests it.
 # The numbers in Cases T1-T4 can be added up by hand from the three tables in
@@ -7,7 +7,8 @@
 # reproduces published values: Primer3's Tm for the 11 CDC oligos.
 # Cases T9-T12 (version 2) test the qPCR temperature rules (Section 9).
 # Cases T13-T16 (version 3) test primer dimers (Section 10) and the user's
-# reaction conditions.
+# reaction conditions; T17-T19 (version 4) hairpins (Section 11) and the
+# dimers' terminal mismatches.
 #
 # Fake primers and targets are the 18-30 base ones from the first model's
 # tests (test_first_model_factor_specificity.py).
@@ -24,7 +25,7 @@ from second_model_annealing_temp import (
     CONDITIONS, PROJECT, duplex_energy, equivalent_sodium_molar, fraction_bound,
     melting_temperature, perfect_tm, print_temperature_report, run_temperature_model,
     assay_temperature_check, conditions_for, product_tm,
-    QPCR_CONDITIONS, check_conditions, dimer_check, dimer_scan,
+    QPCR_CONDITIONS, check_conditions, dimer_check, dimer_scan, hairpin_check, hairpin_scan,
 )
 from test_first_model_factor_specificity import (
     FORWARD_A, FORWARD_B, PROBE_A, REVERSE_A, amplicon, check, filler, mutate,
@@ -304,26 +305,30 @@ def case_old_designs_fail():
 
 # -- Case T13: a dimer by hand ------------------------------------------------
 # TTTTGCGCTTTT lined up against itself: T faces T everywhere except the
-# middle GCGC, which pairs with itself (it is a palindrome). The T/T
-# mismatches on each side come in pairs, so the region cannot grow.
+# middle GCGC, which pairs with itself (it is a palindrome). On each side of
+# GCGC one T faces a T: a terminal mismatch, which stacks on the end pair.
+# The next T/T pair would be a second mismatch in a row, so the region stops.
 #   stacks GC -9.8/-24.4, CG -10.6/-27.2, GC -9.8/-24.4  = -30.2 / -76.0
 #   initiation, G-C at both ends: 2 x (+0.1/-2.8)       = +0.2 / -5.6
-#   symmetry (self-complementary)                         =  0.0 / -1.4
-#   total dH -30.0 kcal/mol, dS -83.0 cal/(K mol)
-#   salt: dS + 0.368 * 3 * ln(0.22799) = -84.632
-#   dG(37 C) = -30000 - 310.15 * (-84.632) = -3751.3 cal/mol
+#   terminal mismatches, both ends CT/GT -6.1/-16.9      = -12.2 / -33.8
+#   (no symmetry correction: with the mismatches it is not a palindrome)
+#   total dH -42.2 kcal/mol, dS -115.4 cal/(K mol)
+#   salt (4 pairs): dS + 0.368 * 3 * ln(0.22799) = -117.032
+#   dG(37 C) = -42200 - 310.15 * (-117.032) = -5902.5 cal/mol
 def case_dimer_by_hand():
     print("\n--- Case T13: a self-dimer by hand ---")
     scan = dimer_scan("TTTTGCGCTTTT", "TTTTGCGCTTTT", CONDITIONS)
     region = scan["any"]
-    check(region["top"] == "GCGC" and region["bottom"] == "CGCG", "the paired region is GCGC/CGCG")
-    check(close(region["dG"], -3751.3, 0.1), f"dG(37 C) = -3751.3 cal/mol (got {region['dG']:.1f})")
+    check(region["top"] == "TGCGCT" and region["bottom"] == "TCGCGT",
+          "the paired region GCGC/CGCG, with a T/T terminal mismatch at each end")
+    check(close(region["dG"], -5902.5, 0.1), f"dG(37 C) = -5902.5 cal/mol (got {region['dG']:.1f})")
     check(scan["three_prime"] is None, "the 3' ends (T) are not paired")
 
 
 # -- Case T14: the CDC assays have no dimer problem ---------------------------
-# Most stable dimers (this method, 37 C): N2 probe with itself -5.9 kcal/mol;
-# with a primer's 3' end paired: N2 forward on the probe -3.1. Limits -9 / -5.
+# Most stable dimers (this method with terminal mismatches, 37 C): N2 probe
+# with itself -7.0 kcal/mol; with a primer's 3' end paired: N2 forward on the
+# probe -3.6. Limits -9 / -5.
 def case_cdc_dimers():
     print("\n--- Case T14: CDC assays pass the dimer rules ---")
     worst_any = worst_end = 0
@@ -333,8 +338,8 @@ def case_cdc_dimers():
         check(not problems and len(dimers) == 6, f"{name}: 6 oligo pairs, no dimer problem")
         worst_any = min(worst_any, min(d["any"]["dG"] for d in dimers))
         worst_end = min(worst_end, min(d["three_prime"]["dG"] for d in dimers if d["three_prime"]))
-    check(close(worst_any, -5868, 5), f"most stable CDC dimer -5.87 kcal/mol (got {worst_any / 1000:.2f})")
-    check(close(worst_end, -3050, 5), f"most stable at a primer 3' end -3.05 (got {worst_end / 1000:.2f})")
+    check(close(worst_any, -6957, 5), f"most stable CDC dimer -6.96 kcal/mol (got {worst_any / 1000:.2f})")
+    check(close(worst_end, -3568, 5), f"most stable at a primer 3' end -3.57 (got {worst_end / 1000:.2f})")
 
 
 # -- Case T15: a primer pair built to dimerise is caught ---------------------
@@ -371,6 +376,67 @@ def case_user_conditions():
             raise AssertionError(f"{name} = {value:g} accepted")
 
 
+# -- Case T17: a hairpin by hand ----------------------------------------------
+# GGACTTTTGTCC folds: GGAC pairs with GTCC (read backwards), loop TTTT.
+#   stem stacks GG/CC -8.0/-19.9, GA/CT -8.2/-22.2, AC/TG (= GT/CA) -8.4/-22.4
+#                                                     = -24.6 / -64.5
+#   open end G-C: no A-T penalty
+#   loop of 4: dS -11.28 (santalucia_hicks_2004_loops.tsv), dH 0
+#   terminal mismatch at the loop: closing pair C-G, then T facing T:
+#     CT/GT -6.1/-16.9 (terminal-mismatch table)
+#   salt: 0.368 * 3 * ln(0.22799) = -1.632
+#   dH = -30.7 kcal/mol, dS = -94.312 cal/(K mol)
+#   dG(37 C) = -30700 - 310.15 * (-94.312) = -1449.1 cal/mol;  Tm = 52.4 C
+def case_hairpin_by_hand():
+    print("\n--- Case T17: a hairpin by hand ---")
+    fold = hairpin_scan("GGACTTTTGTCC", CONDITIONS)
+    check(fold["stem_5"] == "GGAC" and fold["loop"] == "TTTT" and fold["stem_3"] == "GTCC",
+          "stem GGAC/GTCC, loop TTTT")
+    check(close(fold["dH"], -30.7) and close(fold["dS"], -94.312, 0.001), "dH -30.7, dS -94.312")
+    check(close(fold["dG"], -1449.1, 0.1), f"dG(37 C) = -1449.1 cal/mol (got {fold['dG']:.1f})")
+    check(close(fold["tm"], 52.4, 0.05), f"hairpin Tm 52.4 C (got {fold['tm']:.2f})")
+    check(fold["three_prime"], "its 3' end is in the stem")
+    check(hairpin_scan("AAAAAAAAAAAAAAAAAA", CONDITIONS) is None, "poly-A cannot fold")
+
+
+# -- Case T18: hairpin rules ---------------------------------------------------
+# CDC: the most stable hairpin is N1 reverse, -1.0 kcal/mol (Primer3 also
+# ranks it first, at -1.6). A primer built with a 6-bp GC stem whose 3' end
+# is in the stem is flagged twice.
+def case_hairpin_rules():
+    print("\n--- Case T18: hairpin rules ---")
+    worst = 0
+    for name, (forward, reverse, probe) in CDC_ASSAYS.items():
+        folds, problems = hairpin_check({"forward": forward, "reverse": reverse, "probe": probe},
+                                        conditions_for("forward"))
+        check(not problems, f"{name}: no hairpin problem")
+        worst = min([worst] + [f["dG"] for f in folds.values() if f])
+    check(close(worst, -977, 2), f"most stable CDC hairpin -0.98 kcal/mol (got {worst / 1000:.2f})")
+    _, problems = hairpin_check({"forward": "ATTAGCGGCCTTTTGGCCGC"}, conditions_for("forward"))
+    check(len(problems) == 2 and "prime itself" in problems[1], f"built hairpin flagged twice ({problems})")
+    _, as_probe = hairpin_check({"probe": "ATTAGCGGCCTTTTGGCCGC"}, conditions_for("probe"))
+    check(len(as_probe) == 1, "as a probe, only the folding rule applies (its 3' end is blocked)")
+
+
+# -- Case T19: dimers count terminal mismatches --------------------------------
+# The paired region now takes a terminal mismatch at each end, which
+# stabilises it. Against Primer3's homodimer dG for the 11 CDC oligos, the
+# mean difference falls from 2.2 to 0.9 kcal/mol.
+def case_dimer_terminal_mismatch():
+    print("\n--- Case T19: dimers with terminal mismatches, vs Primer3 ---")
+    path = os.path.join(PROJECT, "data", "primers", "primer3_reference_tm.tsv")
+    with open(path) as handle:
+        rows = [r for r in csv.DictReader((l for l in handle if not l.startswith("#")), delimiter="\t")
+                if r["primer3_homodimer_dg_cal"] != "NA"]
+    diffs = [abs(dimer_scan(r["sequence_5to3"], r["sequence_5to3"], CONDITIONS)["any"]["dG"]
+                 - int(r["primer3_homodimer_dg_cal"])) for r in rows]
+    mean = sum(diffs) / len(diffs)
+    check(len(rows) == 11 and mean < 1000, f"mean difference from Primer3 {mean / 1000:.2f} kcal/mol (< 1)")
+    region = dimer_scan("TACTGCCAGTTGAATCTG", "TACTGCCAGTTGAATCTG", CONDITIONS)["any"]
+    check(region["top"][0] != {"A": "T", "T": "A", "G": "C", "C": "G"}[region["bottom"][0]],
+          f"the best N1-reverse dimer starts with a terminal mismatch ({region['top']}/{region['bottom']})")
+
+
 if __name__ == "__main__":
     case_stack_sum()
     case_tm_by_hand()
@@ -391,4 +457,7 @@ if __name__ == "__main__":
     case_cdc_dimers()
     case_bad_dimer()
     case_user_conditions()
+    case_hairpin_by_hand()
+    case_hairpin_rules()
+    case_dimer_terminal_mismatch()
     print("\nAll cases passed.")

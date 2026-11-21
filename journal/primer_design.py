@@ -1,5 +1,5 @@
 # =============================================================================
-# PRIMER DESIGN: a qPCR primer pair + probe for a target gene   (version 5)
+# PRIMER DESIGN: a qPCR primer pair + probe for a target gene   (version 6)
 # =============================================================================
 # 02-120 project: Do early SARS-CoV-2 qPCR primers still match later variants?
 #
@@ -18,7 +18,8 @@
 # of each other, probe 2 C above the primers, product melts at 95 C).
 # Version 5: the salt and oligo amounts are the user's (conditions), and a
 # design is also rejected if its oligos form a primer dimer (second model,
-# Section 10).
+# Section 10). Version 6: also rejected if an oligo forms a hairpin (second
+# model, Section 11).
 # Without temperature (annealing_c=None) it works as version 3 did, on GC
 # alone. Why it matters: version 3 picked 18-base primers that melt only
 # 3 C above the CDC's 55 C annealing step; NCBI Primer-BLAST would not have
@@ -43,6 +44,15 @@
 #   conditions      - K+/Na+, Mg2+, dNTPs, primer and probe amounts
 #                     (default QPCR_CONDITIONS: 50 mM, 3 mM, 0.8 mM, 500 nM,
 #                     125 nM)
+#   structure_checks - with temperature: also skip designs with hairpins or
+#                     primer dimers (default True). The three websites:
+#                       Version 1  annealing_c=None
+#                       Version 2  annealing_c=55, structure_checks=False
+#                       Version 3  annealing_c=55 (everything)
+#   other_genomes   - {name: genome} of other variants (default None). Designs
+#                     whose three oligos all match every one of them exactly
+#                     rank first (conservation, Section 3c); then the usual
+#                     penalty.
 #
 # Output, for each design (best first):
 #   5'-forward-3', and 3'-reverse-5' (the reverse primer written backwards, so
@@ -68,7 +78,7 @@
 #      least 2 C above both, and the product must melt at the 95 C step.
 #   4. rank the designs, best match first (Section 3b), and walk down the
 #      ranking; with temperature, skip a design whose oligos form a primer
-#      dimer; keep a design only if, on the WHOLE genome and within the
+#      dimer or a hairpin; keep a design only if, on the WHOLE genome and within the
 #      mismatch allowance,
 #        - each oligo has exactly one binding site, and
 #        - run_model finds exactly one product, status "product", at the
@@ -93,7 +103,7 @@ from first_model_factor_specificity import (
 from second_model_annealing_temp import (
     ANNEALING_TEMP_C, DENATURATION_C, PRIMER_TM_ABOVE_ANNEALING, PRIMER_TM_MAX_DIFFERENCE,
     PROBE_ABOVE_PRIMERS_C, PRODUCT_BELOW_DENATURATION_C, QPCR_CONDITIONS, check_conditions,
-    conditions_for, dimer_check, perfect_tm, product_tm,
+    conditions_for, dimer_check, hairpin_check, perfect_tm, product_tm,
 )
 
 
@@ -411,6 +421,41 @@ def temperature_penalty(forward_tm, reverse_tm, probe_tm, product_length, min_pr
 
 
 # =============================================================================
+# SECTION 3c: CONSERVATION ACROSS VARIANTS (optional)
+# -----------------------------------------------------------------------------
+# The designer sees one genome. Primers that sit where variants have
+# changed stop working on those variants (test_cases_web_specificity.txt,
+# part E: every design that failed on a variant had an oligo that did not
+# match it exactly; GC, Tm and product length did not differ). The CDC
+# picked regions that stayed the same. So, given other variants' genomes:
+#
+#   variation = the number of other genomes in which at least one of the
+#               design's three oligos is not found EXACTLY (either strand)
+#
+# and designs are ranked by (variation, penalty, start): designs that match
+# every variant come first. Exact matching is strict on purpose: a single
+# mismatch near the 3' end can stop a primer, and the genomes are not
+# aligned here, so a substring search is the simple, safe test.
+# =============================================================================
+
+def rank_by_conservation(designs, other_genomes):
+    """Re-rank designs in place, conserved first; adds "variation" and "not_in"."""
+    found = {}
+
+    def missing_from(oligo):
+        if oligo not in found:
+            back = reverse_complement(oligo)
+            found[oligo] = [name for name, g in other_genomes.items() if oligo not in g and back not in g]
+        return found[oligo]
+
+    for design in designs:
+        not_in = sorted({name for role in ("forward", "reverse", "probe")
+                         for name in missing_from(design[role]["seq"])})
+        design["variation"], design["not_in"] = len(not_in), not_in
+    designs.sort(key=lambda d: (d["variation"], d["match_penalty"], d["product_start"]))
+
+
+# =============================================================================
 # SECTION 4: SPECIFICITY CHECK WITH THE FIRST MODEL
 # -----------------------------------------------------------------------------
 #   4a. quick screen: each oligo must have exactly one binding site on the
@@ -448,7 +493,8 @@ def specific(design, genome, index, max_mismatches, cache):
 
 def design_primers(genome, target, max_mismatches=2, min_product=PRODUCT_RANGE[0],
                    max_product=PRODUCT_RANGE[1], designs_wanted=DESIGNS_WANTED,
-                   annealing_c=ANNEALING_TEMP_C, conditions=QPCR_CONDITIONS):
+                   annealing_c=ANNEALING_TEMP_C, conditions=QPCR_CONDITIONS,
+                   structure_checks=True, other_genomes=None):
     """Design up to designs_wanted primer pairs + probes for target, best first."""
     genome, target = clean_sequence(genome), clean_sequence(target)
     if not 0 <= max_mismatches <= MAX_ALLOWED_MISMATCHES:
@@ -480,9 +526,12 @@ def design_primers(genome, target, max_mismatches=2, min_product=PRODUCT_RANGE[0
     region_start, region_end, strand = find_target(genome, target)
     designs = possible_designs(genome, region_start, region_end, min_product, max_product,
                                annealing_c, conditions)
+    if other_genomes:
+        rank_by_conservation(designs, other_genomes)
 
     index = build_kmer_index(genome, K)
-    cache, dimer_cache, chosen, checked, dimer_rejected = {}, {}, [], 0, 0
+    cache, dimer_cache, hairpin_cache, chosen = {}, {}, {}, []
+    checked = dimer_rejected = hairpin_rejected = 0
     for design in designs:
         if len(chosen) == designs_wanted:
             break
@@ -491,14 +540,18 @@ def design_primers(genome, target, max_mismatches=2, min_product=PRODUCT_RANGE[0
         if any(design["product_start"] < d["product_end"] and d["product_start"] < design["product_end"]
                for d in chosen):
             continue
-        if annealing_c is not None:
-            dimers, problems = dimer_check({role: design[role]["seq"]
-                                            for role in ("forward", "reverse", "probe")},
-                                           conditions_for("forward", conditions), dimer_cache)
+        if annealing_c is not None and structure_checks:
+            oligos = {role: design[role]["seq"] for role in ("forward", "reverse", "probe")}
+            hairpins, problems = hairpin_check(oligos, conditions_for("forward", conditions),
+                                               hairpin_cache)
+            if problems:
+                hairpin_rejected += 1
+                continue
+            dimers, problems = dimer_check(oligos, conditions_for("forward", conditions), dimer_cache)
             if problems:
                 dimer_rejected += 1
                 continue
-            design["dimers"] = dimers
+            design["hairpins"], design["dimers"] = hairpins, dimers
         checked += 1
         if specific(design, genome, index, max_mismatches, cache):
             chosen.append(design)
@@ -523,6 +576,7 @@ def design_primers(genome, target, max_mismatches=2, min_product=PRODUCT_RANGE[0
         "possible": len(designs),
         "checked": checked,
         "dimer_rejected": dimer_rejected,
+        "hairpin_rejected": hairpin_rejected,
         "conditions": None if annealing_c is None else dict(conditions),
         "designs": chosen,
     }
@@ -544,9 +598,9 @@ def print_designs(result, max_mismatches):
         print(f"Annealing at {result['annealing_c']:g} C: primer Tm aimed at "
               f"{target_tm('forward', result['annealing_c']):g} C, probe at "
               f"{target_tm('probe', result['annealing_c']):g} C")
-    print(f"{result['possible']} possible designs; {result['dimer_rejected']} skipped for primer "
-          f"dimers; {result['checked']} checked against the whole genome (mismatch allowance "
-          f"{max_mismatches}).\n")
+    print(f"{result['possible']} possible designs; {result['hairpin_rejected']} skipped for "
+          f"hairpins, {result['dimer_rejected']} for primer dimers; {result['checked']} checked "
+          f"against the whole genome (mismatch allowance {max_mismatches}).\n")
     for warning in result["warnings"]:
         print(f"WARNING: {warning}")
     if result["warnings"]:
@@ -574,6 +628,11 @@ def print_designs(result, max_mismatches):
             worst = min(design["dimers"], key=lambda d: d["any"]["dG"])
             print(f"  dimers   most stable: {worst['pair']}, {worst['any']['length']} bp, "
                   f"dG {worst['any']['dG'] / 1000:.1f} kcal/mol at 37 C (limit -9; 3' ends -5)")
+        folds = [(name, f) for name, f in design.get("hairpins", {}).items() if f]
+        if folds:
+            name, fold = min(folds, key=lambda x: x[1]["dG"])
+            print(f"  hairpins most stable: {name}, {len(fold['stem_5'])} bp stem, loop "
+                  f"{len(fold['loop'])}, dG {fold['dG'] / 1000:.1f} kcal/mol (limit -3; 3' end -2)")
         print()
 
 

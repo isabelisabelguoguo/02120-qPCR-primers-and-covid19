@@ -627,7 +627,7 @@ session logs)
 
 ## Log 15 · 2026-11-20 · A public website, and the Omicron spike gene
 
-**Commit:** `c7886a0` (#69), then #70 (filled in at the next update)
+**Commit:** `c7886a0` (#69), `a5cba54` (#70)
 
 ### What I did
 - The claude.ai pages can only be opened inside my organization, so I put
@@ -643,6 +643,20 @@ session logs)
   because they sit on its own mutations, one on its 9-base "EPE" insertion.
   NCBI's 10 work on all four genomes, but 6 have probes barely above the
   primers **(#70)**.
+
+### How sure can we be that the primers work?
+Not completely, from a computer alone. Our designs pass the same checks the
+working CDC assays pass (one product in the genome, none in the human
+genome, Tm rules, no strong primer dimers), our Tm matches Primer3 and
+Primer-BLAST exactly, and Version 2's designs land where Primer-BLAST's do.
+Not checked yet: hairpins, RNA folding at the binding site, the thousands
+of slightly different virus sequences in real samples, other microbes in a
+swab, and how efficiently the primers actually copy. Only a lab test
+proves a design works: a standard curve on a synthetic template (90-110 %
+efficiency), one product on a melt curve or gel, flat no-template
+controls, no signal from human DNA or other respiratory viruses, and a
+side-by-side run with CDC N1 (details at the end of
+`modification documentation.md`).
 
 ### Things to work on for next time
 - **Main goal:** checking each design against several variant genomes would
@@ -662,20 +676,86 @@ session logs)
 - Report where each CDC design ranks (#52); clear error for non-DNA letters
   in `primer_design.py`.
 
+## Log 16 · 2026-11-20 · Hairpins, Version 3, and primers that work on every variant
+
+**Commit:** filled in at the next update
+
+### What I did
+- Made the primer-dimer check closer to Primer3: a mismatch just past either
+  end of a paired region now counts, because it stacks on the last pair.
+  Against Primer3's values for the CDC oligos, the average gap fell from 2.2
+  to 0.9 kcal/mol. With it, the N gene design whose reverse primer and probe
+  share a CAG repeat now fails (-9.2 kcal/mol, limit -9) **(#71)**.
+- Added hairpins to the second model: an oligo folding back on itself, with
+  a stem of pairs and a loop of at least 3 bases. Loop penalties come from
+  SantaLucia & Hicks (2004). A design is skipped if an oligo folds more
+  stably than -3 kcal/mol, or -2 if a primer's 3' end is in the stem (it
+  could prime itself). The CDC assays' worst hairpin is -1.0 **(#71)**.
+- Kept Version 2 of the website as temperature only and made Version 3,
+  the Structure-Aware Primer Designer: Version 2 plus primer dimers,
+  hairpins and the reaction-conditions panel. Each version builds on the
+  one before; all three are checked against the Python and link to each
+  other, and the public home page shows all three **(#72)**.
+- Downloaded a real Alpha genome (OL461702.1, a patient sample) and checked
+  it has all nine Alpha signature changes and both spike deletions, so the
+  project finally has Alpha (#42). Then compared the CDC N1/N2/N3 primers on
+  Alpha, Beta and Omicron with NCBI BLAST: our model and BLAST agree on all
+  36 oligo-genome pairs. The only mismatch is the N1 probe on Omicron, and
+  every CDC assay still works on every variant **(#73)**.
+- Ran all three website versions on each variant's N gene. The CDC assays
+  work on all four genomes, but only 4-7 of each version's 12 designs do:
+  some sit on a variant's own mutations (Alpha's D3L, Omicron's 9-base
+  deletion in N) **(#73)**.
+- Looked for the pattern: every design that failed had an oligo that does
+  not match some variant exactly, at the same few mutation hotspots in N.
+  GC, Tm and product length did not differ. What we were missing is
+  conservation. A new option ranks designs that match every given variant
+  first: with all five genomes, 12 of 12 top designs work on every variant
+  (Version 3 alone: 4 of 12), and one of them overlaps the CDC's N3 region.
+  It cannot foresee brand-new mutations: designed with only the earlier
+  variants, one of three top designs still failed on Omicron, on its new
+  9-base deletion **(#74)**.
+
+### Things to work on for next time
+- **Main goal: build Version 4 of the website** to account for variants:
+  Version 3 plus "rank designs that match all variants first", with the
+  reference, Alpha, Beta, Delta and Omicron genomes built in, a place to add
+  more, and each design showing which variants it matches. Translate
+  `rank_by_conservation` to JavaScript and check it with
+  `check_website_port.py`; add designer tests for it.
+- **Brand-new mutations, if possible:** ranking by known variants cannot
+  foresee a new mutation (Omicron's deletion). Ideas to try:
+  - use many more genomes (hundreds from NCBI Virus) so rare changes show up
+  - avoid known mutation hotspots and prefer regions that stay the same
+  - keep enough Tm margin that one mismatch away from the 3' end still binds
+  - offer two targets per test, as the CDC does with N1 and N2, so one new
+    mutation cannot make the test fail
+- Add the public link to the repository's About box on GitHub.
+- **Proposal wording:** the second model computes how much a mismatch lowers
+  the Tm, which goes beyond the proposal; update it or call it an extension.
+- Write expected results for Versions 2 and 3 in a test-case file.
+- Hairpin stems with mismatches or bulges, and dangling ends (our energies
+  are still 0.4-1.0 kcal/mol weaker than Primer3's).
+- Second model: Tm for indel and side-by-side mismatch sites (#44), and the
+  probe's Ct delay (#45).
+- Report where each CDC design ranks (#52); clear error for non-DNA letters
+  in `primer_design.py`.
+
 ---
 
 ## Where things stand
 Still open (details at the end of `modification documentation.md`): a few
 search limits, one genome per variant, and no real Alpha genome yet (#42).
 Factor 2 (annealing temperature) has Tm, qPCR temperature rules, the
-CDC's real concentrations and primer dimers (Logs 9, 14). Next: Tm for
-indel sites, hairpins, and turning the probe's weaker binding into an
+CDC's real concentrations, primer dimers and hairpins (Logs 9, 14, 16).
+Next: Tm for indel sites, and turning the probe's weaker binding into an
 expected Ct delay.
 
 Primer design (Logs 11-12, 14) picks 18-24-base primers with 40-60% GC and
 a Tm that suits the annealing step, checks for primer dimers, and keeps a
 design only if the first model finds just one product. NCBI BLAST and
 Primer-BLAST agree with it on where primers bind and on Tm (Log 14). There
-are two websites: Version 1 (GC only, Log 13) and Version 2 (with
-temperature, Log 14), both checked against the Python. Next: hairpins, and
-running the designs on the variant genomes.
+are three websites: Version 1 (GC only, Log 13), Version 2 (temperature,
+Log 14) and Version 3 (+ dimers and hairpins, Log 16), all public and
+checked against the Python. Next: Version 4, which ranks designs that
+match every variant first (Log 16).

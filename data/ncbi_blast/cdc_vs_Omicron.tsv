@@ -1,0 +1,505 @@
+# NCBI RID G231P9VK114, 2026-11-20, CDC N1-N3 oligos vs Omicron genome (two-sequence blastn, word size 7)
+<p><!--
+QBlastInfoBegin
+	Status=READY
+QBlastInfoEnd
+--><p>
+<PRE>
+# blastn
+# Iteration: 0
+# Query: CDC_N1_forward
+# RID: G231P9VK114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 38 hits found
+CDC_N1_forward	Omicron	100.000	20	0	0	1	20	28212	28231	1.35e-06	37.4
+CDC_N1_forward	Omicron	100.000	11	0	0	6	16	7869	7879	0.10	21.1
+CDC_N1_forward	Omicron	100.000	10	0	0	2	11	1291	1300	0.36	19.3
+CDC_N1_forward	Omicron	100.000	10	0	0	6	15	8711	8702	0.36	19.3
+CDC_N1_forward	Omicron	100.000	9	0	0	4	12	17750	17742	1.3	17.5
+CDC_N1_forward	Omicron	100.000	9	0	0	5	13	25496	25504	1.3	17.5
+CDC_N1_forward	Omicron	100.000	9	0	0	7	15	27974	27982	1.3	17.5
+CDC_N1_forward	Omicron	100.000	9	0	0	3	11	29051	29043	1.3	17.5
+CDC_N1_forward	Omicron	100.000	8	0	0	3	10	2415	2422	4.4	15.7
+CDC_N1_forward	Omicron	100.000	8	0	0	6	13	13870	13863	4.4	15.7
+CDC_N1_forward	Omicron	100.000	8	0	0	10	17	14722	14729	4.4	15.7
+CDC_N1_forward	Omicron	100.000	8	0	0	8	15	14872	14879	4.4	15.7
+CDC_N1_forward	Omicron	100.000	8	0	0	8	15	17569	17576	4.4	15.7
+CDC_N1_forward	Omicron	100.000	8	0	0	6	13	20461	20454	4.4	15.7
+CDC_N1_forward	Omicron	100.000	8	0	0	4	11	20580	20587	4.4	15.7
+CDC_N1_forward	Omicron	100.000	7	0	0	14	20	546	552	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	6	12	1220	1214	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	5	11	1643	1637	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	8	14	1980	1974	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	9	15	3626	3632	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	11	17	3825	3819	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	7	13	3902	3908	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	13	19	4150	4156	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	6	12	13227	13221	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	14	20	13962	13968	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	5	11	19128	19122	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	5	11	20804	20798	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	5	11	21285	21279	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	7	13	21407	21401	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	9	15	22558	22564	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	9	15	22580	22574	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	9	15	22748	22742	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	7	13	22774	22768	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	5	11	23880	23874	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	8	14	24537	24543	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	7	13	24613	24607	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	6	12	25402	25396	15	13.9
+CDC_N1_forward	Omicron	100.000	7	0	0	13	19	29497	29491	15	13.9
+# blastn
+# Iteration: 0
+# Query: CDC_N1_reverse
+# RID: G231P9VK114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 71 hits found
+CDC_N1_reverse	Omicron	100.000	24	0	0	1	24	28283	28260	1.25e-08	44.6
+CDC_N1_reverse	Omicron	93.333	15	1	0	10	24	3459	3473	0.041	23.8
+CDC_N1_reverse	Omicron	100.000	11	0	0	14	24	20922	20912	0.14	21.1
+CDC_N1_reverse	Omicron	100.000	10	0	0	13	22	23729	23720	0.50	19.3
+CDC_N1_reverse	Omicron	91.667	12	1	0	12	23	14408	14397	1.7	18.4
+CDC_N1_reverse	Omicron	100.000	9	0	0	12	20	6263	6271	1.7	17.5
+CDC_N1_reverse	Omicron	100.000	9	0	0	13	21	12995	12987	1.7	17.5
+CDC_N1_reverse	Omicron	100.000	8	0	0	3	10	1282	1289	6.1	15.7
+CDC_N1_reverse	Omicron	100.000	8	0	0	17	24	1378	1385	6.1	15.7
+CDC_N1_reverse	Omicron	100.000	8	0	0	15	22	1718	1725	6.1	15.7
+CDC_N1_reverse	Omicron	100.000	8	0	0	13	20	2793	2800	6.1	15.7
+CDC_N1_reverse	Omicron	100.000	8	0	0	14	21	3600	3593	6.1	15.7
+CDC_N1_reverse	Omicron	100.000	8	0	0	13	20	3873	3880	6.1	15.7
+CDC_N1_reverse	Omicron	100.000	8	0	0	2	9	6999	7006	6.1	15.7
+CDC_N1_reverse	Omicron	100.000	8	0	0	14	21	21649	21642	6.1	15.7
+CDC_N1_reverse	Omicron	100.000	8	0	0	17	24	22684	22677	6.1	15.7
+CDC_N1_reverse	Omicron	100.000	8	0	0	13	20	22898	22891	6.1	15.7
+CDC_N1_reverse	Omicron	100.000	8	0	0	14	21	28783	28776	6.1	15.7
+CDC_N1_reverse	Omicron	100.000	8	0	0	7	14	28975	28982	6.1	15.7
+CDC_N1_reverse	Omicron	90.000	10	1	0	11	20	3802	3811	21	14.8
+CDC_N1_reverse	Omicron	90.000	10	1	0	14	23	4414	4405	21	14.8
+CDC_N1_reverse	Omicron	91.667	12	0	1	7	18	13184	13194	21	14.8
+CDC_N1_reverse	Omicron	90.000	10	1	0	1	10	27147	27156	21	14.8
+CDC_N1_reverse	Omicron	100.000	7	0	0	14	20	376	382	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	12	18	869	863	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	15	21	1067	1061	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	12	18	1124	1130	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	14	20	1168	1162	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	3	9	1515	1509	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	13	19	2030	2036	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	11	17	2395	2389	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	4	10	2677	2683	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	12	18	3263	3269	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	18	24	4011	4005	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	3	9	4216	4222	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	14	20	5271	5277	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	2	8	6045	6051	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	15	21	8162	8168	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	5	11	8201	8207	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	14	20	8245	8251	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	15	21	9317	9311	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	5	11	9937	9931	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	14	20	10221	10215	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	15	21	10319	10313	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	12	18	10506	10500	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	6	12	10808	10814	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	14	20	12135	12141	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	14	20	12531	12525	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	15	21	14677	14683	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	14	20	14790	14796	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	16	22	14929	14923	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	17	23	14999	15005	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	5	11	16477	16483	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	2	8	16718	16724	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	15	21	17222	17216	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	1	7	17429	17423	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	3	9	18174	18180	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	8	14	19227	19221	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	13	19	20742	20736	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	1	7	21559	21553	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	14	20	23114	23108	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	2	8	23308	23302	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	8	14	23761	23755	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	1	7	24137	24143	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	17	23	24928	24922	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	17	23	25069	25075	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	12	18	25200	25206	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	18	24	25897	25903	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	6	12	26270	26276	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	5	11	26629	26623	21	13.9
+CDC_N1_reverse	Omicron	100.000	7	0	0	6	12	28797	28791	21	13.9
+# blastn
+# Iteration: 0
+# Query: CDC_N1_probe
+# RID: G231P9VK114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 44 hits found
+CDC_N1_probe	Omicron	95.833	24	1	0	1	24	28234	28257	5.32e-07	40.1
+CDC_N1_probe	Omicron	92.308	13	1	0	7	19	14977	14965	0.50	20.2
+CDC_N1_probe	Omicron	100.000	10	0	0	8	17	7456	7447	0.50	19.3
+CDC_N1_probe	Omicron	91.667	12	1	0	9	20	2679	2690	1.7	18.4
+CDC_N1_probe	Omicron	90.909	11	1	0	6	16	28980	28970	6.1	16.6
+CDC_N1_probe	Omicron	84.615	13	2	0	11	23	430	418	6.1	15.7
+CDC_N1_probe	Omicron	86.667	15	1	1	6	20	1147	1134	6.1	15.7
+CDC_N1_probe	Omicron	100.000	8	0	0	15	22	2295	2302	6.1	15.7
+CDC_N1_probe	Omicron	100.000	8	0	0	14	21	13160	13167	6.1	15.7
+CDC_N1_probe	Omicron	100.000	8	0	0	4	11	18895	18888	6.1	15.7
+CDC_N1_probe	Omicron	100.000	8	0	0	16	23	21157	21164	6.1	15.7
+CDC_N1_probe	Omicron	100.000	8	0	0	14	21	23261	23268	6.1	15.7
+CDC_N1_probe	Omicron	100.000	8	0	0	14	21	23876	23883	6.1	15.7
+CDC_N1_probe	Omicron	100.000	8	0	0	9	16	26337	26344	6.1	15.7
+CDC_N1_probe	Omicron	90.000	10	1	0	9	18	5981	5972	21	14.8
+CDC_N1_probe	Omicron	90.000	10	1	0	15	24	23058	23067	21	14.8
+CDC_N1_probe	Omicron	90.000	10	1	0	11	20	24146	24155	21	14.8
+CDC_N1_probe	Omicron	100.000	7	0	0	17	23	2192	2198	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	14	20	3095	3101	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	14	20	3671	3677	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	13	19	4990	4996	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	13	19	5962	5956	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	9	15	7987	7993	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	10	16	7996	8002	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	5	11	8311	8305	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	14	20	9419	9425	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	6	12	11376	11370	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	15	21	11739	11745	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	9	15	12198	12192	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	6	12	12969	12963	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	6	12	14717	14711	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	6	12	16870	16864	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	8	14	17340	17346	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	8	14	18674	18680	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	6	12	18773	18767	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	7	13	19972	19966	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	14	20	20546	20552	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	14	20	20800	20806	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	15	21	23867	23861	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	6	12	24164	24170	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	14	20	24395	24401	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	15	21	25874	25880	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	14	20	28617	28611	21	13.9
+CDC_N1_probe	Omicron	100.000	7	0	0	15	21	29285	29279	21	13.9
+# blastn
+# Iteration: 0
+# Query: CDC_N2_forward
+# RID: G231P9VK114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 67 hits found
+CDC_N2_forward	Omicron	100.000	20	0	0	1	20	29080	29099	1.35e-06	37.4
+CDC_N2_forward	Omicron	92.857	14	1	0	5	18	3401	3388	0.10	22.0
+CDC_N2_forward	Omicron	100.000	11	0	0	6	16	15486	15476	0.10	21.1
+CDC_N2_forward	Omicron	100.000	10	0	0	3	12	21504	21495	0.36	19.3
+CDC_N2_forward	Omicron	91.667	12	1	0	2	13	19171	19160	1.3	18.4
+CDC_N2_forward	Omicron	100.000	9	0	0	1	9	19503	19511	1.3	17.5
+CDC_N2_forward	Omicron	100.000	9	0	0	1	9	25582	25574	1.3	17.5
+CDC_N2_forward	Omicron	90.909	11	1	0	1	11	13036	13046	4.4	16.6
+CDC_N2_forward	Omicron	90.909	11	1	0	2	12	15754	15744	4.4	16.6
+CDC_N2_forward	Omicron	100.000	8	0	0	2	9	5879	5872	4.4	15.7
+CDC_N2_forward	Omicron	100.000	8	0	0	2	9	6704	6697	4.4	15.7
+CDC_N2_forward	Omicron	100.000	8	0	0	1	8	7444	7451	4.4	15.7
+CDC_N2_forward	Omicron	100.000	8	0	0	4	11	7982	7975	4.4	15.7
+CDC_N2_forward	Omicron	100.000	8	0	0	3	10	8694	8701	4.4	15.7
+CDC_N2_forward	Omicron	100.000	8	0	0	3	10	11094	11087	4.4	15.7
+CDC_N2_forward	Omicron	100.000	8	0	0	7	14	17363	17370	4.4	15.7
+CDC_N2_forward	Omicron	100.000	8	0	0	6	13	21682	21675	4.4	15.7
+CDC_N2_forward	Omicron	100.000	8	0	0	1	8	22482	22489	4.4	15.7
+CDC_N2_forward	Omicron	100.000	8	0	0	1	8	24800	24793	4.4	15.7
+CDC_N2_forward	Omicron	100.000	8	0	0	7	14	28623	28630	4.4	15.7
+CDC_N2_forward	Omicron	90.000	10	1	0	1	10	16322	16313	15	14.8
+CDC_N2_forward	Omicron	90.000	10	1	0	2	11	20567	20576	15	14.8
+CDC_N2_forward	Omicron	91.667	12	0	1	1	12	21900	21890	15	14.8
+CDC_N2_forward	Omicron	100.000	7	0	0	1	7	1743	1749	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	5	11	2331	2337	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	2	8	2564	2558	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	3	9	2636	2642	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	5	11	5058	5064	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	1	7	5769	5775	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	2	8	6004	5998	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	3	9	7081	7075	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	7	13	9021	9015	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	3	9	9199	9193	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	7	13	10381	10375	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	5	11	10610	10604	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	4	10	11095	11101	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	3	9	11123	11117	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	9	15	12601	12595	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	2	8	12742	12736	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	14	20	13412	13406	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	2	8	14042	14048	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	5	11	14320	14314	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	6	12	14589	14583	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	4	10	15294	15300	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	5	11	15625	15631	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	1	7	16818	16824	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	6	12	16968	16962	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	9	15	17047	17053	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	5	11	17595	17589	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	7	13	18965	18971	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	2	8	19232	19226	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	3	9	19860	19854	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	1	7	20634	20640	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	1	7	21008	21014	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	1	7	22691	22685	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	3	9	23062	23056	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	5	11	23414	23408	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	1	7	23851	23857	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	1	7	24167	24173	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	5	11	25018	25024	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	1	7	25681	25675	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	1	7	26145	26139	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	1	7	26981	26987	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	13	19	27635	27629	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	6	12	28684	28690	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	8	14	29146	29152	15	13.9
+CDC_N2_forward	Omicron	100.000	7	0	0	5	11	29271	29277	15	13.9
+# blastn
+# Iteration: 0
+# Query: CDC_N2_reverse
+# RID: G231P9VK114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 22 hits found
+CDC_N2_reverse	Omicron	100.000	18	0	0	1	18	29146	29129	1.23e-05	33.7
+CDC_N2_reverse	Omicron	100.000	9	0	0	3	11	20726	20718	0.95	17.5
+CDC_N2_reverse	Omicron	100.000	8	0	0	5	12	1022	1015	3.3	15.7
+CDC_N2_reverse	Omicron	100.000	8	0	0	9	16	1537	1544	3.3	15.7
+CDC_N2_reverse	Omicron	84.615	13	2	0	6	18	18455	18443	3.3	15.7
+CDC_N2_reverse	Omicron	90.000	10	1	0	9	18	585	576	12	14.8
+CDC_N2_reverse	Omicron	90.000	10	1	0	9	18	1407	1398	12	14.8
+CDC_N2_reverse	Omicron	90.000	10	1	0	3	12	17963	17954	12	14.8
+CDC_N2_reverse	Omicron	100.000	7	0	0	5	11	2239	2245	12	13.9
+CDC_N2_reverse	Omicron	100.000	7	0	0	5	11	3590	3596	12	13.9
+CDC_N2_reverse	Omicron	100.000	7	0	0	6	12	4838	4844	12	13.9
+CDC_N2_reverse	Omicron	100.000	7	0	0	5	11	7752	7758	12	13.9
+CDC_N2_reverse	Omicron	100.000	7	0	0	5	11	8171	8165	12	13.9
+CDC_N2_reverse	Omicron	100.000	7	0	0	5	11	10233	10239	12	13.9
+CDC_N2_reverse	Omicron	100.000	7	0	0	5	11	11341	11335	12	13.9
+CDC_N2_reverse	Omicron	100.000	7	0	0	5	11	11888	11894	12	13.9
+CDC_N2_reverse	Omicron	100.000	7	0	0	12	18	18201	18207	12	13.9
+CDC_N2_reverse	Omicron	100.000	7	0	0	4	10	18963	18969	12	13.9
+CDC_N2_reverse	Omicron	100.000	7	0	0	4	10	19141	19135	12	13.9
+CDC_N2_reverse	Omicron	100.000	7	0	0	9	15	26190	26184	12	13.9
+CDC_N2_reverse	Omicron	100.000	7	0	0	11	17	28450	28456	12	13.9
+CDC_N2_reverse	Omicron	100.000	7	0	0	6	12	29273	29279	12	13.9
+# blastn
+# Iteration: 0
+# Query: CDC_N2_probe
+# RID: G231P9VK114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 51 hits found
+CDC_N2_probe	Omicron	100.000	23	0	0	1	23	29104	29126	4.37e-08	42.8
+CDC_N2_probe	Omicron	100.000	10	0	0	1	10	26552	26561	0.50	19.3
+CDC_N2_probe	Omicron	90.909	11	1	0	1	11	2205	2195	6.1	16.6
+CDC_N2_probe	Omicron	100.000	8	0	0	1	8	1719	1712	6.1	15.7
+CDC_N2_probe	Omicron	100.000	8	0	0	1	8	14268	14261	6.1	15.7
+CDC_N2_probe	Omicron	100.000	8	0	0	1	8	19509	19516	6.1	15.7
+CDC_N2_probe	Omicron	100.000	8	0	0	1	8	23176	23183	6.1	15.7
+CDC_N2_probe	Omicron	100.000	8	0	0	2	9	24467	24460	6.1	15.7
+CDC_N2_probe	Omicron	100.000	8	0	0	14	21	25489	25496	6.1	15.7
+CDC_N2_probe	Omicron	100.000	8	0	0	2	9	27502	27509	6.1	15.7
+CDC_N2_probe	Omicron	100.000	8	0	0	2	9	29102	29095	6.1	15.7
+CDC_N2_probe	Omicron	90.000	10	1	0	1	10	2157	2148	21	14.8
+CDC_N2_probe	Omicron	90.000	10	1	0	2	11	22733	22724	21	14.8
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	2190	2184	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	3	9	4331	4337	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	3	9	4374	4368	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	16	22	5332	5326	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	5542	5548	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	3	9	6018	6024	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	6167	6161	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	8180	8174	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	8505	8499	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	8966	8972	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	10252	10246	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	10392	10398	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	10964	10970	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	11732	11726	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	11861	11855	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	17	23	11919	11913	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	5	11	12270	12264	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	12525	12519	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	17	23	13369	13375	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	13562	13568	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	13627	13633	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	3	9	15155	15149	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	17	23	15764	15758	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	3	9	16975	16969	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	4	10	17141	17147	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	17516	17510	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	17	23	18631	18637	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	17	23	21203	21197	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	3	9	21274	21268	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	4	10	22170	22176	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	17	23	25007	25013	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	3	9	25254	25248	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	1	7	26027	26021	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	15	21	26275	26281	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	2	8	26990	26984	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	3	9	27476	27482	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	2	8	28442	28436	21	13.9
+CDC_N2_probe	Omicron	100.000	7	0	0	2	8	29206	29200	21	13.9
+# blastn
+# Iteration: 0
+# Query: CDC_N3_forward
+# RID: G231P9VK114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 62 hits found
+CDC_N3_forward	Omicron	100.000	22	0	0	1	22	28597	28618	1.39e-07	41.0
+CDC_N3_forward	Omicron	92.308	13	1	0	2	14	3428	3440	0.45	20.2
+CDC_N3_forward	Omicron	100.000	10	0	0	4	13	2314	2323	0.45	19.3
+CDC_N3_forward	Omicron	85.714	14	2	0	9	22	9431	9418	1.6	17.5
+CDC_N3_forward	Omicron	100.000	9	0	0	13	21	20554	20546	1.6	17.5
+CDC_N3_forward	Omicron	90.909	11	1	0	12	22	16447	16437	5.5	16.6
+CDC_N3_forward	Omicron	90.909	11	1	0	3	13	24297	24287	5.5	16.6
+CDC_N3_forward	Omicron	100.000	8	0	0	3	10	217	224	5.5	15.7
+CDC_N3_forward	Omicron	100.000	8	0	0	15	22	2690	2683	5.5	15.7
+CDC_N3_forward	Omicron	100.000	8	0	0	15	22	3677	3670	5.5	15.7
+CDC_N3_forward	Omicron	100.000	8	0	0	12	19	6240	6233	5.5	15.7
+CDC_N3_forward	Omicron	100.000	8	0	0	9	16	9424	9431	5.5	15.7
+CDC_N3_forward	Omicron	100.000	8	0	0	13	20	13986	13979	5.5	15.7
+CDC_N3_forward	Omicron	100.000	8	0	0	12	19	19117	19110	5.5	15.7
+CDC_N3_forward	Omicron	100.000	8	0	0	15	22	20806	20799	5.5	15.7
+CDC_N3_forward	Omicron	100.000	8	0	0	15	22	23267	23260	5.5	15.7
+CDC_N3_forward	Omicron	100.000	8	0	0	15	22	23882	23875	5.5	15.7
+CDC_N3_forward	Omicron	82.353	17	1	1	7	21	24411	24395	5.5	15.7
+CDC_N3_forward	Omicron	100.000	8	0	0	6	13	24935	24928	5.5	15.7
+CDC_N3_forward	Omicron	100.000	8	0	0	5	12	25616	25623	5.5	15.7
+CDC_N3_forward	Omicron	90.000	10	1	0	4	13	8641	8632	19	14.8
+CDC_N3_forward	Omicron	90.000	10	1	0	12	21	18350	18359	19	14.8
+CDC_N3_forward	Omicron	90.000	10	1	0	10	19	24670	24661	19	14.8
+CDC_N3_forward	Omicron	100.000	7	0	0	14	20	528	522	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	12	18	896	890	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	8	14	1066	1060	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	15	21	1134	1140	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	9	15	1942	1936	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	13	19	2551	2557	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	13	19	2881	2887	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	15	21	3101	3095	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	8	14	3220	3214	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	13	19	3259	3265	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	13	19	4484	4490	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	10	16	5783	5789	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	8	14	9097	9091	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	6	12	9112	9118	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	13	19	9271	9265	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	13	19	9301	9307	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	3	9	9920	9914	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	11	17	11519	11525	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	14	20	11628	11622	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	6	12	12372	12378	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	15	21	13166	13160	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	11	17	13736	13742	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	10	16	16085	16079	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	6	12	16116	16110	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	8	14	18854	18860	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	4	10	19034	19040	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	14	20	19856	19850	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	10	16	21288	21294	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	16	22	21811	21805	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	8	14	21984	21990	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	6	12	22015	22021	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	13	19	23248	23254	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	11	17	24102	24108	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	15	21	24155	24149	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	16	22	24243	24249	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	6	12	26495	26501	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	16	22	27768	27762	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	15	21	28253	28247	19	13.9
+CDC_N3_forward	Omicron	100.000	7	0	0	14	20	28413	28419	19	13.9
+# blastn
+# Iteration: 0
+# Query: CDC_N3_reverse
+# RID: G231P9VK114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 43 hits found
+CDC_N3_reverse	Omicron	100.000	21	0	0	1	21	28668	28648	4.36e-07	39.2
+CDC_N3_reverse	Omicron	92.308	13	1	0	5	17	7250	7238	0.41	20.2
+CDC_N3_reverse	Omicron	91.667	12	1	0	9	20	14724	14713	1.4	18.4
+CDC_N3_reverse	Omicron	100.000	9	0	0	10	18	26304	26296	1.4	17.5
+CDC_N3_reverse	Omicron	100.000	8	0	0	14	21	12477	12484	5.0	15.7
+CDC_N3_reverse	Omicron	100.000	8	0	0	11	18	16568	16575	5.0	15.7
+CDC_N3_reverse	Omicron	84.615	13	2	0	6	18	18801	18789	5.0	15.7
+CDC_N3_reverse	Omicron	100.000	8	0	0	11	18	25251	25244	5.0	15.7
+CDC_N3_reverse	Omicron	90.000	10	1	0	9	18	8779	8770	17	14.8
+CDC_N3_reverse	Omicron	90.000	10	1	0	12	21	16329	16320	17	14.8
+CDC_N3_reverse	Omicron	90.000	10	1	0	9	18	23729	23738	17	14.8
+CDC_N3_reverse	Omicron	100.000	7	0	0	11	17	157	163	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	3	9	825	831	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	10	16	961	967	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	14	20	1304	1298	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	3	9	1493	1487	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	4	10	3630	3636	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	14	20	5154	5160	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	1	7	6741	6735	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	5	11	8820	8826	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	15	21	10898	10892	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	14	20	12004	11998	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	15	21	12297	12291	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	13	19	13029	13023	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	7	13	13394	13388	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	14	20	13972	13966	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	13	19	14501	14495	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	15	21	15830	15824	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	14	20	16259	16253	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	14	20	16522	16516	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	3	9	17350	17344	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	15	21	17584	17578	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	10	16	17633	17627	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	14	20	17731	17725	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	1	7	19710	19716	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	14	20	21127	21121	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	12	18	22276	22270	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	12	18	24166	24160	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	1	7	26963	26957	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	1	7	27005	27011	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	12	18	27032	27026	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	13	19	28842	28836	17	13.9
+CDC_N3_reverse	Omicron	100.000	7	0	0	12	18	29383	29377	17	13.9
+# blastn
+# Iteration: 0
+# Query: CDC_N3_probe
+# RID: G231P9VK114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 35 hits found
+CDC_N3_probe	Omicron	95.833	24	1	0	1	24	28620	28643	1.53e-07	41.9
+CDC_N3_probe	Omicron	92.308	13	0	1	4	15	17363	17375	6.1	16.6
+CDC_N3_probe	Omicron	100.000	8	0	0	4	11	3399	3392	6.1	15.7
+CDC_N3_probe	Omicron	100.000	8	0	0	3	10	10382	10375	6.1	15.7
+CDC_N3_probe	Omicron	100.000	8	0	0	4	11	15485	15478	6.1	15.7
+CDC_N3_probe	Omicron	100.000	8	0	0	17	24	27051	27044	6.1	15.7
+CDC_N3_probe	Omicron	100.000	8	0	0	4	11	29086	29093	6.1	15.7
+CDC_N3_probe	Omicron	100.000	8	0	0	5	12	29146	29153	6.1	15.7
+CDC_N3_probe	Omicron	100.000	7	0	0	7	13	657	663	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	6	12	985	991	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	8	14	1274	1268	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	18	24	1722	1728	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	7	13	2061	2067	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	17	23	2759	2753	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	8	14	3104	3098	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	7	13	4175	4169	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	6	12	5431	5425	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	4	10	9021	9015	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	17	23	10279	10285	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	3	9	11873	11867	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	18	24	12770	12764	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	6	12	12988	12982	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	17	23	13652	13646	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	3	9	14765	14759	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	7	13	15165	15171	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	14	20	15534	15540	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	3	9	17397	17403	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	11	17	18195	18201	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	4	10	18965	18971	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	4	10	21681	21675	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	6	12	22179	22173	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	6	12	24278	24284	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	6	12	27048	27054	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	7	13	27337	27343	21	13.9
+CDC_N3_probe	Omicron	100.000	7	0	0	8	14	29198	29192	21	13.9
+</PRE>
+

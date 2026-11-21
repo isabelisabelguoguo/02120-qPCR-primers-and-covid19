@@ -152,11 +152,6 @@ button:disabled { opacity: 0.6; cursor: progress; }
 .step { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; display: grid; gap: 2px; min-width: 0; }
 .step b { font-family: var(--font-mono); color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
 .step span { font-size: 13px; }
-.conditions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
-.conditions .field label { font-weight: 500; font-size: 13px; }
-fieldset { border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px 14px; margin: 0; min-width: 0; display: grid; gap: 10px; }
-legend { font-weight: 600; font-size: 14px; padding: 0 4px; }
-.dimer { grid-column: 2; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.35; overflow-x: auto; white-space: pre; color: var(--ink); background: var(--bg); border-radius: 4px; padding: 6px 8px; }
 
 .oligo { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 4px 12px; align-items: baseline; }
 .oligo + .oligo { border-top: 1px dashed var(--line); padding-top: 12px; }
@@ -247,21 +242,10 @@ footer { font-size: 13px; color: var(--muted); }
         <div class="field">
           <span class="label-row"><span style="font-weight:600;font-size:14px">Temperature rules</span></span>
           <label class="temp-toggle" for="use-temp"><input id="use-temp" type="checkbox" checked> Use melting temperature</label>
-          <span class="hint">Untick to design on GC content alone, as the first website does, and compare. Without temperature, reaction conditions and dimers are not used.</span>
+          <span class="hint">Untick to design on GC content alone, as Version 1 does, and compare.</span>
         </div>
       </div>
 
-      <fieldset id="conditions-box">
-        <legend>Reaction conditions</legend>
-        <span class="hint">Used for every Tm and dimer energy. Defaults: a typical qPCR mix with the CDC's primer and probe amounts.</span>
-        <div class="conditions">
-          <div class="field"><label for="c-mono">K⁺/Na⁺ (mM)</label><input id="c-mono" type="number" inputmode="decimal" step="any" min="10" max="200" value="50"></div>
-          <div class="field"><label for="c-mg">Mg²⁺ (mM)</label><input id="c-mg" type="number" inputmode="decimal" step="any" min="0" max="10" value="3"></div>
-          <div class="field"><label for="c-dntp">dNTPs (mM)</label><input id="c-dntp" type="number" inputmode="decimal" step="any" min="0" max="2" value="0.8"></div>
-          <div class="field"><label for="c-primer">Each primer (nM)</label><input id="c-primer" type="number" inputmode="decimal" step="any" min="50" max="2000" value="500"></div>
-          <div class="field"><label for="c-probe">Probe (nM)</label><input id="c-probe" type="number" inputmode="decimal" step="any" min="50" max="1000" value="125"></div>
-        </div>
-      </fieldset>
 
       <div class="actions">
         <button type="submit" class="primary" id="run">Suggest primers</button>
@@ -293,8 +277,7 @@ footer { font-size: 13px; color: var(--muted); }
           <tr><td>68 °C</td><td>≥ 74 °C</td><td style="text-align:right;padding-right:12px">4</td><td style="text-align:right">0</td></tr>
         </table></div>
         Too low cuts designs too: primers more than 13 °C above annealing bind so strongly that they also hold on to sites with mismatches, so they are left out. Each target has a best range, high enough for specificity and low enough that its sequence can reach the Tms; for this gene it is about 55 °C, the CDC's setting. AT-rich targets reach lower Tms, so they run out of designs at lower annealing temperatures.</li>
-      <li><b>No primer dimers.</b> Oligos in the same tube can stick to each other instead of the template. If a primer's 3′ end is paired, the polymerase extends it into a short primer-dimer product that uses up primers. Every pair of oligos (and each with itself) is lined up at every offset, and the paired region's stacking energy is summed. A design is skipped if any dimer is more stable than −9 kcal/mol at 37 °C, or one with a primer's 3′ end paired is more stable than −5 (the probe's 3′ end is blocked, so it does not count). The CDC assays' worst are −5.9 and −3.1.</li>
-      <li>Tm is computed with the second model: nearest-neighbor energies (SantaLucia 1998), with salt and Mg²⁺ corrections as in Primer3, at the reaction conditions you set (default 50 mM K⁺, 3 mM Mg²⁺, 0.8 mM dNTPs, 500 nM each primer and 125 nM probe, the CDC amounts). More Mg²⁺ or more oligo raises every Tm. At Primer-BLAST's default conditions it gives the same Tm as Primer-BLAST.</li>
+      <li>Tm is computed with the second model: nearest-neighbor energies (SantaLucia 1998), with salt and Mg²⁺ corrections as in Primer3, at 50 mM K⁺, 3 mM Mg²⁺, 0.8 mM dNTPs, 500 nM each primer and 125 nM probe (the CDC amounts). At Primer-BLAST's default conditions it gives the same Tm as Primer-BLAST.</li>
     </ul>
   </details>
 
@@ -306,13 +289,12 @@ footer { font-size: 13px; color: var(--muted); }
       <li>The probe sits in the middle of the gap between the primers, among probes at least 2 °C above both primers. Primer pairs more than 4 °C apart, and products above 90 °C, are skipped.</li>
       <li>Ranking, best first: penalty = each oligo's distance from its target Tm (°C) + (product length − shortest allowed) ÷ 10. Lower is better.</li>
       <li>The target's GC is checked first: above 70 % stops the design, 60–70 % or below 40 % gives a warning. An AT-rich target may give no design, because its 40–60 % GC stretches melt too low.</li>
-      <li>Designs whose oligos form a primer dimer (see above) are skipped.</li>
       <li>A design is kept only if each oligo binds exactly once in the whole genome and the first model finds exactly one product, with the probe inside it. Later designs do not overlap earlier ones.</li>
-      <li>Not considered yet: hairpins (an oligo folding back on itself).</li>
+      <li>Not considered: hairpins and primer dimers (Version 3 checks both), and RNA folding of the virus genome at the binding site. Every design still needs lab testing before it can be trusted.</li>
     </ul>
   </details>
 
-  <footer>Positions are 1-based genome coordinates. The reverse primer is shown 3'→5' so it lines up under the genome; order it 5'→3' as listed.<br>Version 1 designs on GC content alone, for comparison: <a href="https://claude.ai/artifact/XKd9SSGhpFHH1WXYemP3Bh" target="_blank" rel="noopener" style="color:var(--accent)">qPCR Primer Designer</a> (the "Use melting temperature" switch above gives the same designs).</footer>
+  <footer>Positions are 1-based genome coordinates. The reverse primer is shown 3'→5' so it lines up under the genome; order it 5'→3' as listed.<br>Other versions: <a href="https://claude.ai/artifact/XKd9SSGhpFHH1WXYemP3Bh" target="_blank" rel="noopener" style="color:var(--accent)">Version 1</a> designs on GC content alone (unticking "Use melting temperature" gives the same designs), and <a href="https://claude.ai/artifact/J4B9pWGJaxSc9vZeFYtKw4" target="_blank" rel="noopener" style="color:var(--accent)">Version 3</a> adds primer-dimer and hairpin checks.</footer>
 </div>
 
 <script src="example_data.js"></script>
@@ -484,31 +466,9 @@ footer { font-size: 13px; color: var(--muted); }
       ", " + d.product_length + " bp" + (d.tm ? ", Tm " + d.tm.product.toFixed(1) + " °C (melts apart at the 95 °C step)" : "") +
       ": the only product the specificity model finds in the whole genome."));
     if (d.tm) card.insertBefore(thermoScale(d, annealingUsed), card.children[2]);
-    if (d.dimers) card.appendChild(dimerRow(d.dimers));
     return card;
   }
 
-  // The most stable dimer among the design's oligos, drawn as the two strands
-  // lined up (top 5'->3', bottom 3'->5'), with | for each pair.
-  function dimerRow(dimers) {
-    var worst = dimers.reduce(function (a, b) { return b.any.dG < a.any.dG ? b : a; });
-    var ends = dimers.filter(function (x) { return x.three_prime; });
-    var worstEnd = ends.length ? ends.reduce(function (a, b) { return b.three_prime.dG < a.three_prime.dG ? b : a; }) : null;
-    var row = el("div", "oligo");
-    var tag = el("div", "tag", "Dimers");
-    row.appendChild(tag);
-    var names = worst.pair.split("/");
-    var who = names.length === 1 ? "the " + names[0] + " with itself" : "the " + names[0] + " with the " + names[1];
-    row.appendChild(el("div", "seq", ""));
-    row.lastChild.appendChild(el("span", "", "Most stable: " + who + ", " + worst.any.length + " bp, ΔG " + (worst.any.dG / 1000).toFixed(1) + " kcal/mol at 37 °C"));
-    var top = worst.any.top, bottom = worst.any.bottom, bars = "";
-    for (var i = 0; i < top.length; i++) bars += bottom[i] === ({ A: "T", T: "A", G: "C", C: "G" })[top[i]] ? "|" : " ";
-    row.appendChild(el("div", "dimer", "5'-" + top + "-3'\n   " + bars + "\n3'-" + bottom + "-5'"));
-    row.appendChild(el("div", "meta", "Limit −9 kcal/mol" + (worstEnd
-      ? "; most stable with a primer's 3′ end paired: " + (worstEnd.three_prime.dG / 1000).toFixed(1) + " kcal/mol (limit −5)"
-      : "; no primer 3′ end is paired")));
-    return row;
-  }
 
   // A horizontal thermometer: the annealing step, the allowed primer band,
   // and each oligo's Tm. One scale for marks, ticks and labels.
@@ -576,8 +536,7 @@ footer { font-size: 13px; color: var(--muted); }
     summary.appendChild(el("div", "", result.annealing_c === null
       ? "Temperature not used: designed on GC content alone."
       : "Annealing at " + result.annealing_c + " °C: primers aimed at " + PrimerDesign.targetTm("forward", result.annealing_c) +
-        " °C, probe at " + PrimerDesign.targetTm("probe", result.annealing_c) + " °C. " +
-        result.dimer_rejected.toLocaleString() + " skipped because their oligos form primer dimers."));
+        " °C, probe at " + PrimerDesign.targetTm("probe", result.annealing_c) + " °C."));
     out.appendChild(summary);
     result.warnings.forEach(function (w) { out.appendChild(notice("warn", "Warning:", w)); });
     if (!result.designs.length) {
@@ -589,7 +548,6 @@ footer { font-size: 13px; color: var(--muted); }
 
   $("use-temp").addEventListener("change", function () {
     $("annealing").disabled = !$("use-temp").checked;
-    $("conditions-box").disabled = !$("use-temp").checked;
   });
 
   $("form").addEventListener("submit", function (event) {
@@ -608,15 +566,8 @@ footer { font-size: 13px; color: var(--muted); }
         var annealing = useTemp ? (annealingValue === "" ? NaN : Number(annealingValue)) : null;
         if (useTemp && !isFinite(annealing)) throw new Error("enter an annealing temperature, for example 55");
         annealingUsed = annealing;
-        var conditions = {
-          monovalent_mM: Number($("c-mono").value), divalent_mM: Number($("c-mg").value),
-          dntp_mM: Number($("c-dntp").value), primer_nM: Number($("c-primer").value),
-          probe_nM: Number($("c-probe").value), oligo_nM: 250.0,
-        };
-        ["c-mono", "c-mg", "c-dntp", "c-primer", "c-probe"].forEach(function (id) {
-          if ($(id).value.trim() === "") throw new Error("fill in every reaction condition (" + $(id).labels[0].textContent + " is empty)");
-        });
-        var result = PrimerDesign.designPrimers(genomeBox.value, targetBox.value, allowance, shortest, longest, 3, annealing, conditions);
+        var result = PrimerDesign.designPrimers(genomeBox.value, targetBox.value, allowance, shortest, longest, 3, annealing,
+          PrimerDesign.QPCR_CONDITIONS, false);
         render(result, allowance);
         $("status").textContent = "Done in " + ((performance.now() - started) / 1000).toFixed(1) + " s.";
       } catch (error) {

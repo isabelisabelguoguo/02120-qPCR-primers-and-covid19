@@ -388,7 +388,10 @@ Tm defaults, specificity vs the human genome (no other target found).
       (ins214EPE, GAGCCAGAA in the probe): no product on the other genomes.
       An Omicron-specific assay, not a general SARS-CoV-2 test.
   *** every failure is the same rule: the probe is only 0.5-1.9 C above the
-      primers (should be >= 2 C), as with Primer-BLAST on the N gene.
+      primers (should be >= 2 C), as with Primer-BLAST on the N gene. Since
+      the second model's version 4 (dimers count terminal mismatches),
+      NCBI design 7's forward primer also forms a self-dimer below
+      -9 kcal/mol. Hairpins (version 4) flag none of the 16 designs.
 
 Version 1 vs Version 2: no design in common. V1's three 60 bp designs all
 break the temperature rules (low primer Tms, primers 7.2 C apart, probes
@@ -409,3 +412,55 @@ Primer-BLAST far more than Version 1 does. But neither our designer nor
 Primer-BLAST looks at OTHER variants: a design made on one genome can sit on
 that variant's own mutations (V1 1, V2 1). Checking designs against several
 variant genomes is a natural next step for the designer.
+
+
+E. CDC N1/N2/N3 ON ALPHA, BETA AND OMICRON: OUR MODELS vs NCBI BLAST,
+   AND THE THREE WEBSITE VERSIONS (2026-11-20)
+-----------------------------------------------------------------------
+(python3 journal/compare_variants_cdc.py; BLAST results saved in
+data/ncbi_blast/cdc_vs_<genome>.tsv)
+
+Genomes: reference NC_045512.2; Alpha OL461702.1 (new: a patient sample,
+checked for all nine Alpha signature changes - N501Y, A570D, P681H, T716I,
+S982A, D1118H, ORF8 Q27*, N D3L, N S235F - and the spike deletions 69-70
+and 144; replaces the missing Alpha genome of #42); Beta MZ068155; Omicron
+BA.1 OL672836.1.
+
+E1. Where the CDC oligos bind: our model vs NCBI BLAST
+  All 36 oligo-genome pairs (9 oligos x 4 genomes): same site, same
+  mismatch count. The only mismatch on any variant: the N1 probe on
+  Omicron, 1 mismatch 22 bases from its 3' end (C28311T, N P13L), dTm
+  -6.8 C; every CDC assay still gives its product at 55 C on every genome.
+  BLAST shows "1 mismatch" on the N3 probe everywhere: its degenerate Y is
+  counted as a mismatch by BLAST, but it fits the genome base (C or T).
+
+E2. The three versions on each genome's N gene vs the CDC assays
+  CDC N1, N2 and N3 pass Version 2's and Version 3's rules on all four
+  genomes, and work on all four (3 of 3).
+  Each version designs 3 primer sets per genome (12 per version); "works
+  on all four" = product at 55 C on reference, Alpha, Beta and Omicron:
+
+    Version 1 (GC only)          5 of 12 work on all four
+    Version 2 (temperature)      7 of 12
+    Version 3 (+ dimers, hairpins) 4 of 12
+    CDC N1/N2/N3                 3 of 3
+
+  Overlap with the CDC products: Version 1's first two designs always
+  overlap N1 (60 bp products at the start of the gene); Versions 2 and 3
+  overlap N2 on every genome and N1 on Omicron.
+  Designs that work only on the genome they were made on:
+    Version 1, Alpha design 1 (forward TGTCTCTAAATGGACCCC contains Alpha's
+      D3L change, CTA)
+    Versions 2 and 3, Omicron (product 28250-28312): both primers also bind
+      the other genomes, but the probe TGGCAGTAACCAGAATGGTGGGGC sits across
+      Omicron's 9-base deletion in N (codons 31-33), so on the others the
+      DNA is copied but there is no signal ("no signal")
+  Version 3 is not "worse" because of its extra checks: rejecting
+  dimer/hairpin designs moves it to other regions, which by chance carry
+  more variant mutations. None of the versions looks at other variants.
+
+What it shows: on where primers bind, our model and NCBI BLAST agree
+completely, also on variant genomes. The CDC assays were picked in regions
+that stay unchanged across variants; our designer only sees one genome, so
+about half its designs sit on some variant's mutations. Checking each
+design on several variant genomes is the next feature to add.

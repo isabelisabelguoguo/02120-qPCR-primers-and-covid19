@@ -1,5 +1,5 @@
 # =============================================================================
-# TESTS FOR: PRIMER DESIGN   (version 5)
+# TESTS FOR: PRIMER DESIGN   (version 6)
 # =============================================================================
 # The designer lives in primer_design.py; this file only tests it. Every case
 # uses a FAKE genome and a FAKE target gene, built from seeded random bases
@@ -17,7 +17,9 @@
 # Cases 1-15 test the GC rules and the specificity check WITHOUT temperature
 # (annealing_c=None, as in version 3), so their expected answers are
 # unchanged. Cases 16-20 test the temperature rules added in version 4;
-# cases 21-22 the primer-dimer check and user conditions of version 5.
+# cases 21-22 the primer-dimer check and user conditions of version 5;
+# case 23 the hairpin check of version 6; case 24 the structure_checks
+# switch (Version 2 vs Version 3 of the website).
 #
 # Run it with:  python3 journal/test_primer_design.py
 # =============================================================================
@@ -403,6 +405,34 @@ def case_dimer_filter():
           "every design kept has no dimer more stable than -4 kcal/mol")
 
 
+def case_hairpin_filter():
+    print("\n--- Case 23: designs with a folding oligo are skipped ---")
+    normal = design_with_temperature(GENOME, TARGET, 2)
+    check(all(f is None or f["dG"] >= -3000 for d in normal["designs"] for f in d["hairpins"].values()),
+          f"default limit -3 kcal/mol: no design kept has a stronger hairpin ({normal['hairpin_rejected']} skipped)")
+    saved = second_model_annealing_temp.HAIRPIN_MAX_DG
+    second_model_annealing_temp.HAIRPIN_MAX_DG = 0.0   # any fold more stable than 0: for this test only
+    try:
+        strict = design_with_temperature(GENOME, TARGET, 2)
+    finally:
+        second_model_annealing_temp.HAIRPIN_MAX_DG = saved
+    check(strict["hairpin_rejected"] > 0, f"limit 0 kcal/mol: {strict['hairpin_rejected']} designs skipped")
+    check(all(f is None or f["dG"] >= 0 for d in strict["designs"] for f in d["hairpins"].values()),
+          "every design kept has no hairpin more stable than 0 kcal/mol")
+
+
+def case_structure_switch():
+    print("\n--- Case 24: Version 2 (no dimer or hairpin checks) vs Version 3 on the N gene ---")
+    reference = read_fasta(glob.glob(os.path.join(PROJECT, "data", "reference", "*"))[0])[1]
+    gene = reference[28274 - 1:29533]
+    v2 = design_with_temperature(reference, gene, 2, structure_checks=False)
+    v3 = design_with_temperature(reference, gene, 2)
+    check(v2["designs"][0]["reverse"]["seq"] == "ATCTGTCAAGCAGCAGCAA" and "dimers" not in v2["designs"][0],
+          "Version 2 keeps the CAG-repeat design (reverse ATCTGTCAAGCAGCAGCAA), unchecked for dimers")
+    check(v3["dimer_rejected"] >= 1 and v3["designs"][0]["reverse"]["seq"] != "ATCTGTCAAGCAGCAGCAA",
+          "Version 3 skips it: its reverse/probe dimer is -9.2 kcal/mol")
+
+
 def case_user_conditions():
     print("\n--- Case 22: the user's salt and oligo amounts are used ---")
     mix = dict(QPCR_CONDITIONS, divalent_mM=5.0, primer_nM=250.0)
@@ -451,4 +481,6 @@ if __name__ == "__main__":
     case_annealing_errors()
     case_dimer_filter()
     case_user_conditions()
+    case_hairpin_filter()
+    case_structure_switch()
     print("\nAll cases passed.")

@@ -1,11 +1,12 @@
 # =============================================================================
 # CHECK: does the website's JavaScript designer agree with primer_design.py?
 # =============================================================================
-# There are two websites, each with a JavaScript translation of the designer:
-#   website/              GC only: primer_design.py run with annealing_c=None
-#                         (version 3 behaviour)
-#   website_temperature/  with temperature: primer_design.py version 4 and
-#                         the second model's Tm and qPCR rules
+# There are three websites, each with a JavaScript translation of the designer:
+#   website/              Version 1, GC only: design_primers(annealing_c=None)
+#   website_temperature/  Version 2, temperature: annealing_c=55,
+#                         structure_checks=False
+#   website_structures/   Version 3, temperature + primer dimers + hairpins:
+#                         annealing_c=55, structure_checks=True
 # This script runs the Python and each JavaScript version on the same inputs
 # and checks they return the same designs (sequences, positions, product,
 # penalty, and for the temperature site each oligo's Tm to 1e-9 C), the
@@ -31,9 +32,10 @@ from second_model_annealing_temp import QPCR_CONDITIONS
 from test_primer_design import GENOME, SHIFT, TARGET, basic_genome, random_bases
 
 PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SITES = {
-    "website (GC only)": (os.path.join(PROJECT, "website", "primer_design.js"), None),
-    "website_temperature": (os.path.join(PROJECT, "website_temperature", "primer_design.js"), 55.0),
+SITES = {   # name: (JavaScript file, annealing temperature, dimer and hairpin checks)
+    "Version 1: website (GC only)": (os.path.join(PROJECT, "website", "primer_design.js"), None, False),
+    "Version 2: website_temperature": (os.path.join(PROJECT, "website_temperature", "primer_design.js"), 55.0, False),
+    "Version 3: website_structures": (os.path.join(PROJECT, "website_structures", "primer_design.js"), 55.0, True),
 }
 
 
@@ -96,10 +98,15 @@ def summary(result):
               [[x["pair"], round(x["any"]["dG"], 6), x["any"]["top"], x["any"]["bottom"],
                 None if x["three_prime"] is None else round(x["three_prime"]["dG"], 6)]
                for x in d["dimers"]] for d in result["designs"]]
+    hairpins = [None if not d.get("hairpins") else
+                {k: None if f is None else [round(f["dG"], 6), f["stem_5"], f["loop"], f["three_prime"]]
+                 for k, f in d["hairpins"].items()} for d in result["designs"]]
     return {
         "tms": tms,
         "dimers": dimers,
+        "hairpins": hairpins,
         "dimer_rejected": result.get("dimer_rejected", 0),
+        "hairpin_rejected": result.get("hairpin_rejected", 0),
         "warnings": result["warnings"],
         "target": result["target"],
         "possible": result["possible"],
@@ -110,17 +117,19 @@ def summary(result):
     }
 
 
-def run_python(genome, target, allowance, product, annealing, conditions=None):
+def run_python(genome, target, allowance, product, annealing, conditions=None, structures=True):
     try:
         return summary(design_primers(genome, target, allowance, *product, annealing_c=annealing,
-                                      conditions=conditions or QPCR_CONDITIONS))
+                                      conditions=conditions or QPCR_CONDITIONS,
+                                      structure_checks=structures))
     except ValueError as error:
         return {"error": str(error)}
 
 
-def run_javascript(js_file, all_cases):
+def run_javascript(js_file, all_cases, structures=True):
     inputs = [{"genome": c[1], "target": c[2], "allowance": c[3], "product": list(c[4]),
-               "annealing": c[5], "conditions": c[6] if len(c) > 6 else None} for c in all_cases]
+               "annealing": c[5], "conditions": c[6] if len(c) > 6 else None,
+               "structures": structures} for c in all_cases]
     runner = """
     function round9(x) { return Math.round(x * 1e9) / 1e9; }
     function round6(x) { return Math.round(x * 1e6) / 1e6; }
@@ -129,7 +138,7 @@ def run_javascript(js_file, all_cases):
         var r = c.annealing === "gc-site"
           ? PrimerDesign.designPrimers(c.genome, c.target, c.allowance, c.product[0], c.product[1])
           : PrimerDesign.designPrimers(c.genome, c.target, c.allowance, c.product[0], c.product[1], 3, c.annealing,
-                                       c.conditions || PrimerDesign.QPCR_CONDITIONS);
+                                       c.conditions || PrimerDesign.QPCR_CONDITIONS, c.structures);
         return {
           dimers: r.designs.map(function (d) {
             if (!d.dimers) return null;
@@ -139,6 +148,16 @@ def run_javascript(js_file, all_cases):
             });
           }),
           dimer_rejected: r.dimer_rejected,
+          hairpin_rejected: r.hairpin_rejected,
+          hairpins: r.designs.map(function (d) {
+            if (!d.hairpins) return null;
+            var h = {};
+            for (var k in d.hairpins) {
+              var f = d.hairpins[k];
+              h[k] = f === null ? null : [round6(f.dG), f.stem_5, f.loop, f.three_prime];
+            }
+            return h;
+          }),
           tms: r.designs.map(function (d) {
             if (!d.tm) return null;
             var t = {};
@@ -195,19 +214,20 @@ def site_cases(site_annealing):
 
 if __name__ == "__main__":
     total_failures = 0
-    for site, (js_file, site_annealing) in SITES.items():
+    for site, (js_file, site_annealing, structures) in SITES.items():
         print(f"\n=== {site} ===")
         all_cases = site_cases(site_annealing)
-        javascript = run_javascript(js_file, all_cases)
+        javascript = run_javascript(js_file, all_cases, structures)
         failures = 0
         for case, js in zip(all_cases, javascript):
             name, genome, target, allowance, product, annealing = case[:6]
             py = run_python(genome, target, allowance, product,
                             None if annealing == "gc-site" else annealing,
-                            case[6] if len(case) > 6 else None)
+                            case[6] if len(case) > 6 else None, structures)
             if annealing == "gc-site" and "error" not in js:
                 js = {**js, "tms": [None] * len(js.get("designs", [])),
-                      "dimers": [None] * len(js.get("designs", [])), "dimer_rejected": 0}
+                      "dimers": [None] * len(js.get("designs", [])), "dimer_rejected": 0,
+                      "hairpins": [None] * len(js.get("designs", [])), "hairpin_rejected": 0}
             same = py == js
             failures += not same
             if "error" in py:
