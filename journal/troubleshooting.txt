@@ -1,9 +1,11 @@
 TROUBLESHOOTING
 ===============
-One line per problem overcome, in two parts:
+One line per problem overcome, in five parts:
   PART 1  first_model_factor_specificity.py  (#1-#46)
-  PART 2  primer_design.py                   (#47-#57, #61)
-  PART 3  the website (website/)             (#59-#60)
+  PART 2  primer_design.py                   (#47-#57, #61, #65, #68)
+  PART 3  the websites (website/, website_temperature/)  (#59-#60, #66)
+  PART 4  second_model_annealing_temp.py     (#64, #67)
+  PART 5  comparison with NCBI               (#62-#63)
 Numbers match modification documentation.md, which has the full details.
 
 "Functions:" lists the functions each fix changed or is directly about.
@@ -201,10 +203,25 @@ TESTING AND REAL DATA
       designs score a perfect 0 and the earliest one wins. NOT YET OVERCOME.
       Functions: none changed (a finding)
 
+- #65 The designer chose primer lengths by GC alone, so it picked 18-base
+      primers that melt only ~3 C above the 55 C annealing step -> lengths
+      chosen for a target Tm (annealing + 8 C, probe + 15 C), designs that
+      break the qPCR rules skipped, ranked by Tm; GC-only mode kept.
+      Functions: target_tm, choose_length, all_windows, centred_probe,
+                 possible_designs, temperature_penalty, design_primers,
+                 print_designs; design_primers wrapper, cases 16-20
+                 (test_primer_design.py)
+- #68 The dimer check made the slowest case take 10.5 s on the website ->
+      regions grown one base at a time and each oligo pair scanned once per
+      run: 2.1 s, same results.
+      Functions: dimer_scan, dimer_check (second_model_annealing_temp.py);
+                 dimerScan, dimerCheck (website_temperature/primer_design.js);
+                 design_primers, cases 21-22 (test_primer_design.py)
 
-PART 3: THE WEBSITE (website/)
-==============================
+PART 3: THE WEBSITES (website/, website_temperature/)
+=====================================================
 Functions are in website/primer_design.js unless another file is named.
+Version 1 is website/ (GC only); Version 2 is website_temperature/.
 
 - #59 A browser cannot run Python -> the designer and the first-model parts
       it uses were translated to JavaScript, function by function, and
@@ -219,6 +236,57 @@ Functions are in website/primer_design.js unless another file is named.
       Functions: loadExample, run, wrapFasta (website/index.html);
                  web_cases (journal/check_website_port.py)
 
+- #66 The website had no temperature, and both versions should stay
+      available to compare -> a second site, website_temperature/, with the
+      version 4/5 designer in JavaScript; website/ kept as Version 1, and
+      the two link to each other. check_website_port.py checks both.
+      Functions: perfectTm, productTm, conditionsFor, targetTm,
+                 temperaturePenalty, chooseLength, possibleDesigns,
+                 designPrimers (website_temperature/primer_design.js);
+                 thermoScale, dimerRow (website_temperature/index.html);
+                 site_cases, run_javascript, summary
+                 (journal/check_website_port.py)
+
 (Not listed: the save_journal.py stdin hang, a process problem, not the
 model; see Log 13 in modification documentation.md.)
+
+
+PART 4: SECOND MODEL (second_model_annealing_temp.py)
+=====================================================
+(#43-#46 are in Part 1's Log 9 entries of modification documentation.md.)
+
+- #64 Primers that melt too close to the annealing step do not stay bound,
+      and there was no rule for the Tm a qPCR design needs -> qPCR rules set
+      from the CDC assays (primer Tm annealing + 6 to + 13 C, primers within
+      4 C, probe 2 C above them, product <= 90 C), each oligo at the CDC's
+      own amount.
+      Functions: assay_temperature_check, oligo_at_annealing, conditions_for,
+                 product_tm; case_product_tm, case_concentrations,
+                 case_cdc_pass, case_old_designs_fail
+                 (test_second_model_annealing_temp.py)
+- #67 The proposal promised primer dimers and user-set salt and primer
+      concentration -> every oligo pair lined up at every offset, paired
+      region energies summed, limits -9 / -5 (3' end) kcal/mol set from the
+      CDC assays; conditions checked and passed through.
+      Functions: dimer_scan, dimer_check, check_conditions, conditions_for,
+                 QPCR_CONDITIONS; case_dimer_by_hand, case_cdc_dimers,
+                 case_bad_dimer, case_user_conditions
+                 (test_second_model_annealing_temp.py)
+
+
+PART 5: COMPARISON WITH NCBI (compare_ncbi_blast.py)
+====================================================
+
+- #62 BLAST+ could not be installed, Python's urllib rejected the network's
+      certificate, and two-sequence searches were refused by Blast.cgi ->
+      NCBI's web API through curl, BlastAlign.cgi for two sequences. BLAST's
+      local alignments leave end mismatches out -> each hit is extended to
+      the whole oligo on the genome before counting.
+      Functions: ncbi, submit, fetch, ask_ncbi, read_hits,
+                 whole_oligo_mismatches, whole_oligo_site, our_sites,
+                 compare_with_genomes, compare_with_core_nt
+- #63 Primer-BLAST stopped to ask whether the template itself was an
+      intended target when checking against SARS-CoV-2 -> specificity was
+      checked against the human genome instead (what else is in a swab).
+      Functions: primer_blast_designs, compare_n_gene
 

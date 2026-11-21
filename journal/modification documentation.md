@@ -765,6 +765,99 @@ inside a combined command it waited forever and swallowed a heredoc commit
 message (no commit was made). It is now run as
 `python3 .claude/hooks/save_journal.py < /dev/null`.
 
+## Log 14 · 2026-11-19 · Comparing with NCBI, and adding temperature
+
+**Commit:** filled in at the next update
+
+**#62. Problem:** we did not know how our first model's binding sites
+compare with NCBI BLAST, or where our primers match in real organisms.
+**Fix:** `journal/compare_ncbi_blast.py` (reads saved results; `--ask-ncbi`
+searches again). BLAST+ could not be installed (download blocked), so NCBI's
+web API is used: `BlastAlign.cgi` for two-sequence searches (Blast.cgi
+refuses them), `Blast.cgi` for core_nt; requests go through `curl` because
+Python's urllib rejected this network's certificate. Results saved in
+`data/ncbi_blast/`. Findings (written up in
+`test_cases_web_specificity.txt`, parts A-B): cases 1, 3, 4 same sites as
+`our_sites`; case 2's 3-mismatch copy is invisible to BLAST (longest exact
+run 5 < word size 7); BLAST's local alignment leaves end mismatches out
+(case 3 shows 1 mismatch where there are 2), so `whole_oligo_site` extends
+each hit to the whole oligo on the genome before counting. core_nt: 8 of 11
+18-base oligos match a real sequence exactly (E = 228, "not significant");
+case 1's reverse primer matches human chromosome 13 (AL356319) at bases
+2-18; no virus hits.
+
+**#63. Problem:** how do our N gene designs compare with a real primer
+design tool?
+**Fix:** NCBI Primer-BLAST on the N gene (our settings, its Tm defaults
+57-63 C, specificity vs the human genome; vs SARS-CoV-2 it only asked
+whether the template itself was intended), plus our 3 designs and CDC
+N1-N3 as fixed pairs. `compare_ncbi_blast.py` Part 3 and
+`test_cases_web_specificity.txt` part C. `perfect_tm` at Primer-BLAST's
+conditions (50 mM Na+, 1.5 mM Mg2+, 0.6 mM dNTP, 50 nM) = Primer-BLAST's Tm
+for all 12 primers (max diff 0.004 C). Our version 3 designs: forward/
+reverse 52.7/55.6, 54.6/53.9, 62.1/57.2 C (below 57 C or > 3 C apart).
+Primer-BLAST's 10 designs were all in our list, ranked 8,777-61,692 of
+73,409; its design 8 (28285-28375) is nearly CDC N1. BLAST with SARS-CoV-2
+excluded: all N gene oligos, CDC and ours, match SARS-CoV-1, bat and
+pangolin coronaviruses with <= 2 mismatches.
+
+**#64. Problem:** low-Tm primers do not stay bound at the annealing step,
+and the second model had no rule for what Tm a qPCR design needs.
+**Fix:** `second_model_annealing_temp.py` version 2, Section 9:
+`assay_temperature_check` (primer Tm annealing + 6 to + 13 C, primers
+within 4 C, probe >= higher primer + 2 C, `product_tm` <= 95 - 5 C;
+Primer3's long-sequence formula), `conditions_for` (500 nM primers, 125 nM
+probe), `oligo_at_annealing`. Limits set from CDC N1-N3 and RNase P at qPCR
+conditions (primers 61.6-67.4 C, probes 69.3-70.9 C). Tests T9-T12: product
+Tm by hand (81.34 C), concentrations, CDC assays pass, the version 3 N gene
+designs fail.
+
+**#65. Problem:** the designer chose primer lengths by GC alone.
+**Fix:** `primer_design.py` version 4: `choose_length` picks the length with
+Tm closest to `target_tm` (annealing + `PRIMER_TM_TARGET_ABOVE` 8 C;
+probe + `PROBE_TM_TARGET_ABOVE` 15 C), primers only inside annealing + 6 to
++ 13 C; `possible_designs` skips pairs > 4 C apart, takes the centred probe
+>= higher primer + 2 C (`centred_probe(min_tm)`), skips products above 90 C;
+`temperature_penalty` ranks by distance from the target Tms + (product -
+shortest) / 10. `design_primers(annealing_c=55)`; `annealing_c=None` keeps
+version 3. Error outside 45-72 C. Tests 1-15 run with `annealing_c=None`;
+new cases 16-20. N gene: primers 62.8-63.1 C, probes 70.0-70.2 C; at
+Primer-BLAST's conditions 57.6-58.3 C (inside its window).
+
+**#66. Problem:** the website had no temperature, and the professor should
+be able to compare both versions.
+**Fix:** `website_temperature/` (Version 2,
+https://claude.ai/artifact/JRi6KEZtGsBqdkP5jUspZ7): `primer_design.js` with
+`perfectTm`, `productTm`, `conditionsFor`, `targetTm` and the version 4
+designer; page with annealing box, "Use melting temperature" switch, Tm per
+oligo, `thermoScale` (SVG), the cycle explanation, and a table of designs vs
+annealing temperature (N gene: 53,212 at 55 C, 260 at 65 C, 0 at 68 C).
+`website/` (Version 1) unchanged except a version label and a link to
+Version 2. `check_website_port.py` checks both sites (`SITES`,
+`site_cases`), including Tm to 1e-9 C.
+
+**#67. Problem:** the proposal promised primer dimers and user-set salt and
+primer concentration; neither existed.
+**Fix:** second model version 3, Section 10: `dimer_scan` (antiparallel at
+every offset, every paired region that starts and ends with a pair, energy
+from `MATCHED` + `INTERNAL_MISMATCH`, dG at 37 C), `dimer_check` (all self-
+and cross-pairs; limits `DIMER_MAX_DG` -9 and `DIMER_3END_MAX_DG` -5
+kcal/mol; a probe's 3' end does not count). Values are 1-4 kcal/mol less
+negative than Primer3's homodimer dG (no dangling ends or loops), so limits
+were set on this method: CDC worst -5.87 (N2 probe self), -3.05 at a primer
+3' end. `QPCR_CONDITIONS`, `CONDITION_LIMITS`, `check_conditions`;
+`conditions_for` reads `primer_nM`/`probe_nM`. Designer version 5:
+`design_primers(conditions=...)`, dimer check before specificity
+(`dimer_rejected`). Website: reaction-conditions panel and a dimer row per
+design. Tests T13-T16 (dimer by hand -3751.3 cal/mol, CDC, a built dimer,
+conditions) and designer cases 21-22. Port check: 86 of 86 identical.
+
+**#68. Problem:** with the dimer check, test case 4 took 10.5 s on the
+website.
+**Fix:** `dimer_scan` grows each region one base at a time (same summation
+order, identical results) and `dimer_check(cache=...)` scans each oligo pair
+once per run: 2.1 s.
+
 ---
 
 ## Still open (known limits after version 4)
@@ -786,27 +879,30 @@ message (no commit was made). It is now run as
   a predicted Ct or efficiency.
 - Tm is not computed for indel sites (no bulge-loop parameters) or two
   mismatches side by side (no tandem-mismatch parameters) (#44).
-- Tm uses 250 nM for every oligo (the Primer3 reference); CDC uses 500 nM
-  primers and 125 nM probe (about 1 C difference).
-- Hairpins and primer dimers are not modelled.
-- Primer design (#47-#57): ranks only by GC and product length, so many
-  designs tie at a perfect 0 and the earliest wins; it does not reproduce
-  the CDC designs; never proposes degenerate bases (CDC N3 probe has a Y);
-  no hairpin or primer-dimer check; RNase P not checked (needs the human
-  RPP30 segment from NCBI).
+- The variant checks still use 250 nM for every oligo (the Primer3
+  reference); the designer uses the CDC's 500 nM primers and 125 nM probe
+  (#64).
+- Hairpins are not modelled. Primer dimers are (#67), but without dangling
+  ends or loops, so dG is 1-4 kcal/mol weaker than Primer3's.
+- Primer design (#47-#57, #65): it does not reproduce the CDC designs;
+  never proposes degenerate bases (CDC N3 probe has a Y); no hairpin check;
+  RNase P not checked (needs the human RPP30 segment from NCBI). Low-GC
+  targets (e.g. 30 % GC) can give no design with temperature (#66).
+- Our model checks one genome; BLAST shows N gene primers also match
+  related coronaviruses (#63).
 
 ## Planned (not built yet)
-- **Primer design, next:** compare with NCBI BLAST (our primers against
-  NCBI's databases) and Primer-BLAST (its designs for the N gene); report
-  each published design's rank; move the CDC check into `journal/`; add the
-  second model's Tm to the website.
+- **Primer design, next:** report each published design's rank; hairpins;
+  run the new designs on the variant genomes; expected results for the
+  Version 2 website. (NCBI comparison and Tm on the website: done, #62-#66.)
 Factor 2's basic plan (nearest-neighbor Tm, Primer3's salt correction,
 mismatch parameters, comparison with the 55 C annealing step, fraction
 bound) was built in Log 9 (#43-#45). Still to do for it:
 - **Indels and tandem mismatches:** add bulge-loop (SantaLucia & Hicks 2004)
   and tandem-mismatch parameters so those sites get a Tm too.
-- **CDC concentrations:** 500 nM primers, 125 nM probe, and the master mix's
-  real Mg2+ (check the CDC instructions for use).
+- **CDC concentrations:** 500 nM primers and 125 nM probe are used by the
+  designer (#64); still to do: the master mix's real Mg2+ (check the CDC
+  instructions for use) and using them in the variant checks.
 - **Probe-specific check (TaqMan).** The probe is cleaved only if it is bound
   when the polymerase arrives. CDC probes sit about 10 C above the primers. A
   probe mismatch (e.g. Omicron N1, -6.8 C) can lower the signal and give a

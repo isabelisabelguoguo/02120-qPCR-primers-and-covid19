@@ -1,5 +1,5 @@
 # =============================================================================
-# TESTS FOR: PRIMER DESIGN   (version 3)
+# TESTS FOR: PRIMER DESIGN   (version 5)
 # =============================================================================
 # The designer lives in primer_design.py; this file only tests it. Every case
 # uses a FAKE genome and a FAKE target gene, built from seeded random bases
@@ -14,15 +14,34 @@
 # first model is run on the whole genome with the designed oligos, and must
 # find exactly one product, at the designed place.
 #
+# Cases 1-15 test the GC rules and the specificity check WITHOUT temperature
+# (annealing_c=None, as in version 3), so their expected answers are
+# unchanged. Cases 16-20 test the temperature rules added in version 4;
+# cases 21-22 the primer-dimer check and user conditions of version 5.
+#
 # Run it with:  python3 journal/test_primer_design.py
 # =============================================================================
 
 import random
 
 from first_model_factor_specificity import reverse_complement, run_model
+import glob
+import os
+
+from first_model_factor_specificity import read_fasta
 from primer_design import (
-    OLIGO_GC, PRIMER_LENGTH, PROBE_LENGTH, design_primers, gc_fraction, match_penalty,
+    OLIGO_GC, PRIMER_LENGTH, PROBE_LENGTH, gc_fraction, match_penalty, temperature_penalty,
 )
+from primer_design import design_primers as design_with_temperature
+import second_model_annealing_temp
+from second_model_annealing_temp import (
+    PROJECT, QPCR_CONDITIONS, assay_temperature_check, conditions_for, perfect_tm,
+)
+
+
+def design_primers(*args, **options):
+    """Cases 1-15: the designer without temperature (version 3 behaviour)."""
+    return design_with_temperature(*args, annealing_c=None, **options)
 
 
 # =============================================================================
@@ -280,6 +299,135 @@ def case_bad_input():
 # SECTION 6: RUN EVERY CASE
 # =============================================================================
 
+# =============================================================================
+# SECTION 4: TEMPERATURE (version 4)
+# -----------------------------------------------------------------------------
+# With annealing at 55 C (the default) every design must pass the second
+# model's qPCR rules (assay_temperature_check): primers 61-68 C and within
+# 4 C of each other, probe 2 C above the higher primer, product Tm <= 90 C.
+# =============================================================================
+
+def temperature_ok(design, genome, annealing=55):
+    tm = design["tm"]
+    check_result = assay_temperature_check(design["forward"]["seq"], design["reverse"]["seq"],
+                                           design["probe"]["seq"],
+                                           genome[design["product_start"]:design["product_end"]],
+                                           annealing_c=annealing)
+    return check_result["ok"] and abs(check_result["forward"]["tm"] - tm["forward"]) < 1e-9
+
+
+def case_temperature_basic():
+    print("\n--- Case 16: with temperature, every design passes the qPCR rules ---")
+    result = design_with_temperature(GENOME, TARGET, 2)
+    designs = result["designs"]
+    check(result["annealing_c"] == 55 and len(designs) == 3, "3 designs at the default 55 C")
+    check(all(check_design(d, GENOME, 2000, 2400, 2) for d in designs),
+          "every GC, length, position and specificity rule still holds")
+    check(all(temperature_ok(d, GENOME) for d in designs),
+          "every design passes assay_temperature_check "
+          + str([(round(d['tm']['forward'], 1), round(d['tm']['reverse'], 1),
+                  round(d['tm']['probe'], 1)) for d in designs]))
+
+
+def case_temperature_penalty():
+    print("\n--- Case 17: temperature ranking, worked out by hand ---")
+    # annealing 55 C: primer target 63 C, probe target 70 C
+    #   forward 62.0 -> 1.0, reverse 64.5 -> 1.5, probe 68.0 -> 2.0,
+    #   product 80 bp -> (80 - 60) / 10 = 2.0;  total 6.5
+    check(temperature_penalty(62.0, 64.5, 68.0, 80, 60, 55) == 6.5, "hand example: penalty 6.5")
+    check(temperature_penalty(63.0, 63.0, 70.0, 60, 60, 55) == 0, "all on target, 60 bp: penalty 0")
+    check(temperature_penalty(68.0, 68.0, 75.0, 60, 60, 60) == 0, "annealing 60 C: targets 68 and 75 C")
+    designs = design_with_temperature(GENOME, TARGET, 2)["designs"]
+    penalties = [d["match_penalty"] for d in designs]
+    check(penalties == sorted(penalties), f"designs come out best first {penalties}")
+
+
+def case_higher_annealing():
+    print("\n--- Case 18: a higher annealing temperature asks for longer oligos ---")
+    # 60 C annealing: primers are aimed at 68 C instead of 63 C, and at the
+    # same GC a longer oligo has a higher Tm
+    at_55 = design_with_temperature(GENOME, TARGET, 2, annealing_c=55)["designs"]
+    at_60 = design_with_temperature(GENOME, TARGET, 2, annealing_c=60)["designs"]
+    mean = lambda designs: sum(len(d[k]["seq"]) for d in designs for k in ("forward", "reverse")) / (2 * len(designs))
+    check(at_60 and mean(at_60) > mean(at_55),
+          f"mean primer length {mean(at_55):.1f} nt at 55 C < {mean(at_60):.1f} nt at 60 C")
+    check(all(temperature_ok(d, GENOME, 60) for d in at_60), "every 60 C design passes the rules at 60 C")
+
+
+def case_n_gene_temperature():
+    print("\n--- Case 19: the N gene: version 3's low-Tm picks are gone ---")
+    # Version 3 picked TGTCTGATAATGGACCCC (Tm 58.1 C at 500 nM), only 3 C above
+    # the 55 C annealing step; Primer-BLAST would not pick it
+    # (test_cases_web_specificity.txt, part C).
+    reference = read_fasta(glob.glob(os.path.join(PROJECT, "data", "reference", "*"))[0])[1]
+    gene = reference[28274 - 1:29533]
+    old = design_primers(reference, gene, 2)["designs"]
+    new = design_with_temperature(reference, gene, 2)["designs"]
+    check(old[0]["forward"]["seq"] == "TGTCTGATAATGGACCCC", "version 3's first forward primer, for comparison")
+    check(len(new) == 3 and all(temperature_ok(d, reference) for d in new),
+          "version 4: 3 designs, all pass the qPCR rules")
+    check(not {d["forward"]["seq"] for d in old} & {d["forward"]["seq"] for d in new},
+          "none of version 3's forward primers is kept")
+    blast = {"monovalent_mM": 50.0, "divalent_mM": 1.5, "dntp_mM": 0.6, "oligo_nM": 50.0}
+    tms = [perfect_tm(d[k]["seq"], blast) for d in new for k in ("forward", "reverse")]
+    check(all(57 <= tm <= 63 for tm in tms),
+          f"at Primer-BLAST's conditions every primer is inside its 57-63 C window {[round(t, 1) for t in tms]}")
+
+
+def case_annealing_errors():
+    print("\n--- Case 20: annealing temperature out of range ---")
+    for value in (40, 80):
+        try:
+            design_with_temperature(GENOME, TARGET, 2, annealing_c=value)
+        except ValueError as error:
+            check("annealing temperature" in str(error), f"{value} C: error ({error})")
+        else:
+            raise AssertionError(f"{value} C: no error")
+
+
+
+def case_dimer_filter():
+    print("\n--- Case 21: designs whose oligos form dimers are skipped ---")
+    normal = design_with_temperature(GENOME, TARGET, 2)
+    check(all(min(d["any"]["dG"] for d in design["dimers"]) >= -9000 for design in normal["designs"]),
+          f"default limit -9 kcal/mol: every design passes ({normal['dimer_rejected']} skipped)")
+    # a much stricter limit for this test only, so that some designs must be skipped
+    saved = second_model_annealing_temp.DIMER_MAX_DG
+    second_model_annealing_temp.DIMER_MAX_DG = -4000.0
+    try:
+        strict = design_with_temperature(GENOME, TARGET, 2)
+    finally:
+        second_model_annealing_temp.DIMER_MAX_DG = saved
+    check(strict["dimer_rejected"] > 0, f"limit -4 kcal/mol: {strict['dimer_rejected']} designs skipped")
+    check(all(min(d["any"]["dG"] for d in design["dimers"]) >= -4000 for design in strict["designs"]),
+          "every design kept has no dimer more stable than -4 kcal/mol")
+
+
+def case_user_conditions():
+    print("\n--- Case 22: the user's salt and oligo amounts are used ---")
+    mix = dict(QPCR_CONDITIONS, divalent_mM=5.0, primer_nM=250.0)
+    result = design_with_temperature(GENOME, TARGET, 2, conditions=mix)
+    check(result["conditions"]["divalent_mM"] == 5.0, "the result records the conditions used")
+    design = result["designs"][0]
+    check(abs(design["tm"]["forward"] - perfect_tm(design["forward"]["seq"], conditions_for("forward", mix))) < 1e-9,
+          "the forward Tm is computed at 5 mM Mg2+ and 250 nM primer")
+    check(all(temperature_ok_with(d, GENOME, mix) for d in result["designs"]),
+          "every design passes the qPCR rules at those conditions")
+    try:
+        design_with_temperature(GENOME, TARGET, 2, conditions=dict(QPCR_CONDITIONS, divalent_mM=20.0))
+    except ValueError as error:
+        check("divalent" in str(error), f"20 mM Mg2+ refused ({error})")
+    else:
+        raise AssertionError("20 mM Mg2+ accepted")
+
+
+def temperature_ok_with(design, genome, conditions):
+    result = assay_temperature_check(design["forward"]["seq"], design["reverse"]["seq"], design["probe"]["seq"],
+                                     genome[design["product_start"]:design["product_end"]],
+                                     conditions=conditions)
+    return result["ok"]
+
+
 if __name__ == "__main__":
     case_basic()
     case_ranking()
@@ -296,4 +444,11 @@ if __name__ == "__main__":
     case_no_gc_window()
     case_product_length()
     case_bad_input()
+    case_temperature_basic()
+    case_temperature_penalty()
+    case_higher_annealing()
+    case_n_gene_temperature()
+    case_annealing_errors()
+    case_dimer_filter()
+    case_user_conditions()
     print("\nAll cases passed.")

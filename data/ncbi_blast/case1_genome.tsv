@@ -1,0 +1,60 @@
+# NCBI RID FZATSN0F114, 2026-11-19
+<p><!--
+QBlastInfoBegin
+	Status=READY
+QBlastInfoEnd
+--><p>
+<PRE>
+# blastn
+# Iteration: 0
+# Query: c1_F0
+# RID: FZATSN0F114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 1 hits found
+c1_F0	case1_genome	100.000	18	0	0	1	18	117	134	3.00e-07	33.7
+# blastn
+# Iteration: 0
+# Query: c1_R1
+# RID: FZATSN0F114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 2 hits found
+c1_R1	case1_genome	100.000	18	0	0	1	18	176	159	3.00e-07	33.7
+c1_R1	case1_genome	100.000	7	0	0	7	13	368	374	0.28	13.9
+# blastn
+# Iteration: 0
+# Query: c1_P2
+# RID: FZATSN0F114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 2 hits found
+c1_P2	case1_genome	100.000	22	0	0	1	22	137	158	2.76e-09	41.0
+c1_P2	case1_genome	100.000	7	0	0	5	11	37	31	0.38	13.9
+# blastn
+# Iteration: 0
+# Query: c1_F3
+# RID: FZATSN0F114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 1 hits found
+c1_F3	case1_genome	100.000	18	0	0	1	18	214	231	3.00e-07	33.7
+# blastn
+# Iteration: 0
+# Query: c1_R4
+# RID: FZATSN0F114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 1 hits found
+c1_R4	case1_genome	100.000	18	0	0	1	18	275	258	3.00e-07	33.7
+# blastn
+# Iteration: 0
+# Query: c1_P5
+# RID: FZATSN0F114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 2 hits found
+c1_P5	case1_genome	100.000	26	0	0	1	26	232	257	2.22e-11	48.2
+c1_P5	case1_genome	100.000	10	0	0	17	26	112	103	0.011	19.3
+</PRE>
+

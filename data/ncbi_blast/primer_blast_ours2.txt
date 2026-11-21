@@ -1,0 +1,82 @@
+# NCBI Primer-BLAST job_key YWu8MmhfZfdCzfXI-KjR-oKzwMivoNvVrg, 2026-11-19, specificity vs Homo sapiens RefSeq representative genome
+Input PCR template NC_045512.2_N_gene_28274-29533
+Range1 - 1260
+Specificity of primersPrimer pairs are specific to input template as no other targets were found in selected database: RefSeq Reference Genome Database (Organism limited to Homo sapiens)
+Other reports
+Search Summary
+Search parameters and other details
+Search parameter name
+Search parameter value
+Number of Blast hits analyzed	15
+Entrez query
+Min total mismatches	1
+Min 3' end mismatches	1
+Defined 3' end region length	0
+Mismatch threshold to ignore targets	7
+Max target size	4000
+Max number of Blast target sequences	50000
+Blast E value	1000
+Blast word size	7
+Max candidate primer pairs	500
+Min PCR product size	54
+Max PCR product size	150
+Min Primer size	15
+Opt Primer size	96
+Max Primer size	27
+Min Tm	0
+Opt Tm	5.5894e-316
+Max Tm	2.18186e+243
+Max Tm difference	1.5316e-322
+Repeat filter
+Low complexity filter	No
+Summary of primer pairs
+Detailed primer reports
+NC_045512.2 N gene 28274-29533
+ATGTCTGATAATGGACCCCAAAATCAGCGAAATGCACCCCGCATTACGTTTGGTGGACCCTCAGATTCAACTGGCAGTAACCAGAATGGAGAACGCAGTGGGGCGCGATCAAAACAACGTCGGCCCCAAGGTTTACCCAATAATACTGCGTCTTGGTTCACCGCTCTCACTCAACATGGCAAGGAAGACCTTAAATTCCCTCGAGGACAAGGCGTTCCAATTAACACCAATAGCAGTCCAGATGACCAAATTGGCTACTACCGAAGAGCTACCAGACGAATTCGTGGTGGTGACGGTAAAATGAAAGATCTCAGTCCAAGATGGTATTTCTACTACCTAGGAACTGGGCCAGAAGCTGGACTTCCCTATGGTGCTAACAAAGACGGCATCATATGGGTTGCAACTGAGGGAGCCTTGAATACACCAAAAGATCACATTGGCACCCGCAATCCTGCTAACAATGCTGCAATCGTGCTACAACTTCCTCAAGGAACAACATTGCCAAAAGGCTTCTACGCAGAAGGGAGCAGAGGCGGCAGTCAAGCCTCTTCTCGTTCCTCATCACGTAGTCGCAACAGTTCAAGAAATTCAACTCCAGGCAGCAGTAGGGGAACTTCTCCTGCTAGAATGGCTGGCAATGGCGGTGATGCTGCTCTTGCTTTGCTGCTGCTTGACAGATTGAACCAGCTTGAGAGCAAAATGTCTGGTAAAGGCCAACAACAACAAGGCCAAACTGTCACTAAGAAATCTGCTGCTGAGGCTTCTAAGAAGCCTCGGCAAAAACGTACTGCCACTAAAGCATACAATGTAACACAAGCTTTCGGCAGACGTGGTCCAGAACAAACCCAAGGAAATTTTGGGGACCAGGAACTAATCAGACAAGGAACTGATTACAAACATTGGCCGCAAATTGCACAATTTGCCCCCAGCGCTTCAGCGTTCTTCGGAATGTCGCGCATTGGCATGGAAGTCACACCTTCGGGAACGTGGTTGACCTACACAGGTGCCATCAAATTGGATGACAAAGATCCAAATTTCAAAGATCAAGTCATTTTGCTGAATAAGCATATTGACGCATACAAAACATTCCCACCAACAGAGCCTAAAAAGGACAAAAAGAAGAAGGCTGATGAAACTCAAGCCTTACCGCAGAGACAGAAGAAACAGCAAACTGTGACTCTTCTTCCTGCTGCAGATTTGGATGATTTCTCCAAACAATTGCAACAATCCATGAGCAGTGCTGACTCAACTCAGGCCTAA">
+You can re-search for specific primers by accepting some of the unintended targets, check the box(es) next to the ones you accept and try again to re-search for specific primers
+Help
+Primer-BLAST can only find non-specific primers for your template since there are other targets that are similar or identical to your template.  You may choose to re-search for specific primers by allowing some of the highly similar off-targets if they are irrelevant to your PCR experiment.  For example, not all transcript variants are expressed in all tissues, or you are not concerned about the predicted transcripts (i.e., XM_ accessions), or there are redundant database entries.  Another example is, when you enter a raw sequence as PCR template rather than an accession, Primer-BLAST will likely report many off-targets.  However, some of these might be your intended target that you should choose to allow.  When Primer-BLAST does not need to avoid the highly similar off-targets in selecting unique primer regions, it typically has a much higher chance to find specific primers for your intended target.
+Download primer pairs
+Text
+CSV
+Tabular
+Primer pair 1
+Sequence (5'->3')	Template strand	Length	Start	Stop	Tm	GC%	Self complementarity	Self 3' complementarity
+Forward primer	CAGAATGGAGAACGCAGT	Plus	18	82	99	54.63	50.00	2.00	2.00
+Reverse primer	ATTGGGTAAACCTTGGGG	Minus	18	141	124	53.90	50.00	4.00	0.00
+Internal oligo		Plus
+Product length	60
+Product Tm
+Product Tm - min(OLIGO Tm)
+Exon junction
+Total intron size
+Products on intended targets
+Products on allowed targets
+Products on allowed transcript variants
+Products on potentially unintended templates
+Products on target templates
+If you want to allow any of the unintended targets, check the box(es) next to the ones you accept and try again to re-search for specific primers
+Help
+Primer-BLAST can only find non-specific primers for your template since there are other targets that are similar or identical to your template.  You may choose to re-search for specific primers by allowing some of the highly similar off-targets if they are irrelevant to your PCR experiment.  For example, not all transcript variants are expressed in all tissues, or you are not concerned about the predicted transcripts (i.e., XM_ accessions), or there are redundant database entries.  Another example is, when you enter a raw sequence as PCR template rather than an accession, Primer-BLAST will likely report many off-targets.  However, some of these might be your intended target that you should choose to allow.  When Primer-BLAST does not need to avoid the highly similar off-targets in selecting unique primer regions, it typically has a much higher chance to find specific primers for your intended target.
+Follow NCBI
+Twitter
+Facebook
+LinkedIn
+GitHub
+Connect with NLM
+SM-Twitter
+SM-Facebook
+SM-Youtube
+National Library of Medicine
+8600 Rockville Pike
+Bethesda, MD 20894
+Web Policies
+FOIA
+HHS Vulnerability Disclosure
+Help
+Accessibility
+Careers
+NLM
+NIH
+HHS
+USA.gov

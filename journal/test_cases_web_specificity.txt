@@ -190,3 +190,172 @@ Expected (any allowance):
   bind too strongly, also at partly matching sites, and the GC-rich template
   folds on itself and copies poorly. Choose a less GC-rich target.
 Meaning: the GC check runs first, so nothing else is searched.
+
+
+=====================================================================
+COMPARISON WITH NCBI BLAST (2026-11-19)
+=====================================================================
+Script:  python3 journal/compare_ncbi_blast.py   (add --ask-ncbi to search
+         NCBI again; otherwise it reads the saved answers)
+Saved:   data/ncbi_blast/case1_genome.tsv ... case4_genome.tsv, core_nt.tsv
+         (NCBI search IDs at the top of each file)
+
+What was sent to NCBI: every primer and probe the website designs in cases
+1-4 (case 5 has none), plus the top-ranked candidate it had to REJECT in
+cases 3 (allowance 2) and 4. 16 different oligos.
+
+Two searches:
+  A. "Align two sequences": each case's oligos against that case's genome.
+     blastn, word size 7, expect 1000, no filter.
+  B. core_nt (NCBI's main nucleotide collection, all organisms): every
+     oligo. blastn, word size 11, expect 30000 (Primer-BLAST's value),
+     top 50 hits per oligo.
+
+Ours: every site with 0-3 mismatches over the whole oligo, both strands.
+
+
+A. AGAINST THE CASE'S OWN GENOME
+--------------------------------
+  Case  Oligo                         Our sites          NCBI BLAST
+  1     all 6 (designs 1 and 2)       designed site only same; plus 3 chance
+                                                         7-10-base partial hits
+  2     F CGCGGATAAAGATTGTGAGTG       161+ (0)           same
+        R CTCTAGTTTCCACTACAC          211- (0), 561- (3) 211- only
+        P CATAACTCGCGTGAGTAT          184+ (0), 534+ (3) 184+ only
+  3     F AAAGCGGAATTTGCGCGA          136+ (0), 486+ (2) same, but shows the
+                                                         copy as 1 mismatch
+                                                         over 16/18 bases
+        R TACCGATTCGGGATTACG          212- (0), 562- (1) same
+        P ATAGACAGTGGAGAGGCG          170+ (0), 520+ (2) same
+        R CGGTTACCGATTCGGGATTA (a1)   214- (0), 564- (2) same, but shows the
+                                                         copy as 1 mismatch
+                                                         over 19/20 bases
+  4     F CCTCTAGCGTTTACCTAC (rej.)   173+ (0), 523+ (0) same
+        R CGTTCGGACGTTTCTAGA (rej.)   215- (0), 565- (0) same
+        P GGTGAAGCCCTTTGGCCGATAATA    191+ (0), 541+ (0) same
+  (position, strand, mismatches over the whole oligo)
+
+What it shows:
+- Cases 1, 3 and 4: BLAST finds exactly the same sites. So the designer's
+  verdicts (keep case 1's designs; reject case 4's; case 3 depends on the
+  allowance) agree with BLAST.
+- Case 2: BLAST does NOT see the second copy at all. Every 6th base is
+  changed, so the longest exact stretch is 5 bases, and BLAST only starts
+  an alignment from an exact stretch of at least 7 (its "word size"). Our
+  scan sees it as a 3-mismatch site. Here it does not change the verdict
+  (3 mismatches is beyond the allowance of 2), but it means BLAST can miss
+  sites with evenly spread mismatches.
+- Case 3: BLAST reports a LOCAL alignment and leaves off a mismatched base
+  at an oligo end, so it shows 1 mismatch where the whole oligo has 2. Both
+  times the left-off mismatch was at the 5' end. One at the 3' end would be
+  the one that matters most, and BLAST would hide it the same way. This is
+  why NCBI built Primer-BLAST instead of using plain BLAST for primers.
+- A perfect 18-base match gets E = 4.5e-07 against a 650-base genome. Against
+  core_nt the same perfect match gets E = 228 (below). The E-value depends
+  on the size of the database, not on whether the primer binds.
+
+
+B. AGAINST ALL OF NCBI core_nt
+------------------------------
+The case genomes are random bases, so any match in real organisms is by
+chance. Still:
+  - 8 of the 11 18-base oligos match some real sequence EXACTLY over all 18
+    bases (2 to 33 sequences each), e.g. case 1 design 2's forward primer
+    TGGATACCATGCCTAGTC matches 33 falcon sequences (Falco), and case 3's
+    forward primer matches 11, mostly bacterial. The other 3 have matches
+    with at most 1 mismatch.
+  - The 5 longer oligos (20-26 bases: case 2's forward primer, case 3's
+    allowance-1 reverse primer and the 22-26-base probes) have NO exact
+    match; their best has at most 1-3 mismatches.
+  - Every perfect 18-base match has E = 228: "not significant" to BLAST,
+    even though a primer would bind it.
+  - Human: one near-match. Case 1 design 1's reverse primer
+    CGTATGTGTCTAGGGACA matches human chromosome 13 (clone AL356319, bases
+    6041-6057) at its bases 2-18 exactly, so at most 1 mismatch, at the 5'
+    end (the 3' end matches). No SARS-CoV-2 or other virus hits.
+  (NCBI returns only the top 50 sequences per oligo, so these counts are
+  lower limits.)
+
+What it shows: 18 random bases are not unique on Earth's scale: chance
+matches with 0-1 mismatches are common across all of GenBank. Our first
+model only checks the ONE genome it is given, so it cannot see these. For
+a real test this matters only for what is actually in the sample (for a
+swab: the human genome and other microbes), and only if BOTH primers bind
+close enough together to make a product; this is what Primer-BLAST checks
+by searching primer PAIRS against a chosen organism.
+
+
+C. THE N GENE: OUR DESIGNER vs NCBI PRIMER-BLAST (and the CDC primers)
+-----------------------------------------------------------------------
+(compare_ncbi_blast.py PART 3; saved in data/ncbi_blast/primer_blast_*.txt
+and n_gene_core_nt_no_sarscov2.*)
+
+Primer-BLAST = Primer3 (designs primers, using Tm) + BLAST (checks where
+they bind). Ours = GC rules + our first model (binding sites), no Tm yet.
+Same settings given to both: N gene (genome 28274-29533), primers 18-24 nt,
+probe 18-30 nt, 40-60 % GC, product 60-150 bp. Primer-BLAST also used its
+own Tm defaults: 57-63 C (best 60), the two primers within 3 C.
+Specificity: against the human reference genome (what else is in a swab).
+
+C1. Tm: our second model = Primer-BLAST exactly
+  With Primer-BLAST's conditions (50 mM Na+, 1.5 mM Mg2+, 0.6 mM dNTP,
+  50 nM primer) our perfect_tm gives the same Tm as Primer-BLAST for all 12
+  primers (our 3 designs + CDC N1-N3), to 0.005 C. With our qPCR
+  conditions (3 mM Mg2+, 0.8 mM dNTP, 250 nM) every Tm is ~4 C higher:
+  more Mg2+ and more primer make binding more stable. So the Tm values
+  depend on conditions, and Primer-BLAST's default 57-63 C window is set
+  for ITS conditions, not a qPCR mix.
+
+C2. By Primer-BLAST's Tm rules, our top designs would fail:
+  Design  Forward / reverse Tm (Primer-BLAST conditions)
+  ours 1  52.7 / 55.6 C   both below its 57 C minimum
+  ours 2  54.6 / 53.9 C   both below 57 C
+  ours 3  62.1 / 57.2 C   4.9 C apart (limit 3 C)
+  CDC N1  56.7 / 60.8 C   4.1 C apart, forward below 57 C - yet N1 is a
+                          working, widely used assay
+  CDC N2  57.1 / 58.5 C   passes
+  CDC N3  58.8 / 59.9 C   passes
+  Why: our designer picks each primer's LENGTH to bring its GC closest to
+  50 %, and ranks the shortest products first, so it prefers 18-base
+  primers, which melt lower. Primer-BLAST picks lengths so both primers
+  reach ~60 C (all 20 bases here). N1 shows the rule is a guide, not a law.
+
+C3. Primer-BLAST's 10 designs vs our ranking
+  All 10 products (69-142 bp, every primer 59.8-60.2 C) are possible
+  designs in our list too, but our ranking puts them between 8,777th and
+  61,692nd of 73,409, because they are longer than 60 bp and not exactly
+  50 % GC. At the same positions our length choice would give primers up
+  to 8 C apart (e.g. Primer-BLAST design 7: ours 54.9 / 63.0 C).
+  Primer-BLAST design 8 (genome 28285-28375, forward TGGACCCCAAAATCAGCGAA)
+  is almost the CDC N1 assay: its forward primer starts 2 bases before
+  N1's and its probe overlaps N1's probe. Primer-BLAST found the CDC's
+  region on its own; our designer ranks it 14,188th.
+  Probes: Primer-BLAST's probes are 57-60 C, about the SAME as its primers.
+  A TaqMan probe should melt 5-10 C ABOVE the primers (CDC probes do), so
+  Primer-BLAST's probe picks would need changing for qPCR.
+
+C4. Specificity
+  - Against the human genome: Primer-BLAST finds NO other product for any
+    of the 6 pairs (ours 1-3, CDC N1-N3) or its own 10 designs.
+    Same verdict as our first model on the virus genome.
+  - BLAST vs core_nt (all organisms, SARS-CoV-2 excluded): EVERY N gene
+    primer and probe, CDC and ours alike, matches related coronaviruses
+    (SARS-CoV-1 "SARS-related coronavirus", bat and pangolin
+    coronaviruses) and lab "synthetic constructs" with <= 2 mismatches.
+    The N gene is shared across this virus family. Our model checks one
+    genome, so it cannot see this; it is not a problem for a COVID test
+    (those viruses are not in human swabs), but it would be for telling
+    SARS-CoV-1 and -2 apart. (NCBI's exclusion leaks: some hits are still
+    named SARS-CoV-2, filed under other taxonomy IDs.)
+  - Plain BLAST of the CDC primers (cdc_core_nt.tsv, SARS-CoV-2 not
+    excluded): the top 100 hits of every oligo are SARS-CoV-2 genomes
+    (the N3 probe's 1 mismatch is its degenerate Y). RNase P matches human,
+    as it should.
+
+What it shows: on WHERE primers bind, our first model and BLAST agree. On
+WHICH primers to pick, they differ, and temperature is the reason: our
+designer has no Tm rule, so it picks short, low-Tm primers that Primer-BLAST
+would not. Our second model already computes the same Tm as Primer3, so the
+fix is to use it in the designer: choose lengths to hit a target Tm (at qPCR
+conditions), keep the two primers within ~3 C, and require the probe to be
+5-10 C above them.

@@ -561,17 +561,84 @@ session logs)
 - Make `primer_design.py` give a clear error for non-DNA letters, like the
   website does, instead of crashing.
 
+## Log 14 · 2026-11-19 · Comparing with NCBI, and adding temperature
+
+**Commit:** filled in at the next update
+
+### What I did
+- Compared the website's test cases with NCBI BLAST. On each case's own
+  genome, BLAST finds the same binding sites as our first model, with two
+  differences: it misses a copy whose mismatches are spread evenly (every
+  6th base), because BLAST needs 7 matching bases in a row to start, and it
+  leaves mismatches at the ends of an oligo out of its count. Against all of
+  NCBI's sequences, most 18-base primers match some real organism exactly
+  just by chance, and one matches human chromosome 13 at 17 of 18 bases
+  **(#62)**.
+- Ran NCBI Primer-BLAST on the N gene with our settings, and our designs
+  and the CDC's through it. Our second model gives exactly the same Tm as
+  Primer-BLAST (to 0.005 C) at its conditions. But our designer's top
+  primers melted only 52-56 C there, below Primer-BLAST's 57 C minimum:
+  temperature is what our designer was missing. Primer-BLAST also found a
+  design almost the same as the CDC's N1 on its own **(#63)**.
+- Added qPCR temperature rules to the second model, set from the CDC
+  assays: primer Tm 6-13 C above the 55 C annealing step, the two primers
+  within 4 C, the probe at least 2 C above them, and the product must melt
+  at the 95 C step. Tms now use the CDC's real amounts (500 nM primers,
+  125 nM probe). The CDC assays pass; our old designs fail **(#64)**.
+- The designer now picks each primer's length for a Tm of about 63 C and
+  the probe's for about 70 C, and skips designs that break the rules. The
+  new N gene designs have primers at 62.8-63.1 C and pass Primer-BLAST's
+  rules too. The old GC-only way still works, so the old tests still pass
+  **(#65)**.
+- Built a second website, the Temperature-Aware Primer Designer: an
+  annealing temperature box, each oligo's Tm, a thermometer scale per
+  design, and an explanation of why a higher annealing temperature leaves
+  fewer designs. The first website is kept as Version 1, and the two link
+  to each other so they can be compared **(#66)**.
+- Checked the second model against my proposal's temperature paragraph and
+  added what was missing: primer dimers (every pair of oligos lined up at
+  every offset, the paired region's energy summed) and reaction conditions
+  the user can set (salt, Mg2+, dNTPs, primer and probe amounts). The
+  designer skips designs whose oligos form dimers **(#67)**.
+- The dimer check made the slowest website case take 10.5 s; now it takes
+  2.1 s with the same results **(#68)**.
+
+### Things to work on for next time
+- **Proposal wording:** the second model computes how much a mismatch lowers
+  the Tm, which goes beyond the proposal ("mismatches by count and position,
+  not as a stability penalty"). Decide whether to update the proposal or
+  describe it as an extension.
+- **Share Version 1 of the website** with my professor (it is still private;
+  Version 2 is shared with the organization).
+- Write expected results for the new website (Version 2) in a test-case
+  file: the five cases give different answers with temperature (case 2 now
+  gives no design).
+- **Hairpins** (an oligo folding back on itself): needs loop parameters.
+- N gene design 1 has a 10 bp reverse/probe dimer at -8.1 kcal/mol (CAG
+  repeat), under the -9 limit but stronger than any CDC dimer; decide
+  whether the limit should be stricter.
+- Second model: Tm for indel and side-by-side mismatch sites (#44), and the
+  probe's Ct delay (#45).
+- Run the new designs against the variant genomes (Delta, Omicron), as the
+  CDC primers were.
+- Report where each CDC design ranks among the designer's options (#52).
+- Make `primer_design.py` give a clear error for non-DNA letters, like the
+  website does, instead of crashing.
+
 ---
 
 ## Where things stand
 Still open (details at the end of `modification documentation.md`): a few
 search limits, one genome per variant, and no real Alpha genome yet (#42).
-Factor 2 (annealing temperature) has a first version (Log 9). Next: Tm for
-indel sites, the CDC's real concentrations, and turning the probe's weaker
-binding into an expected Ct delay.
+Factor 2 (annealing temperature) has Tm, qPCR temperature rules, the
+CDC's real concentrations and primer dimers (Logs 9, 14). Next: Tm for
+indel sites, hairpins, and turning the probe's weaker binding into an
+expected Ct delay.
 
-Primer design (Logs 11-12) works on fake genomes: 18-24-base primers,
-40-60% GC, best match first, and a product length the user can choose. The
-CDC primers pass its rules but are not reproduced yet. The website (Log 13)
-runs the same designer in the browser, checked against the Python. Next:
-compare with NCBI BLAST and Primer-BLAST, and finish the second model.
+Primer design (Logs 11-12, 14) picks 18-24-base primers with 40-60% GC and
+a Tm that suits the annealing step, checks for primer dimers, and keeps a
+design only if the first model finds just one product. NCBI BLAST and
+Primer-BLAST agree with it on where primers bind and on Tm (Log 14). There
+are two websites: Version 1 (GC only, Log 13) and Version 2 (with
+temperature, Log 14), both checked against the Python. Next: hairpins, and
+running the designs on the variant genomes.

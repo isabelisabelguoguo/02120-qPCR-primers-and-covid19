@@ -1,5 +1,5 @@
 # =============================================================================
-# SECOND MODEL: FACTOR: ANNEALING TEMPERATURE   (version 1)
+# SECOND MODEL: FACTOR: ANNEALING TEMPERATURE   (version 3)
 # =============================================================================
 # 02-120 project: Do early SARS-CoV-2 qPCR primers still match later variants?
 #
@@ -26,11 +26,18 @@
 #   - adds a temperature-aware product status: a product whose primer is
 #     mostly unbound at the annealing temperature is "weak binding"; one whose
 #     probe is mostly unbound gives "no signal"
+#   - (version 2) checks whether a design's temperatures suit qPCR at all
+#     (Section 9): primer Tm 6-13 C above annealing, primers within 4 C,
+#     probe 2 C above the primers, product melts at the 95 C step; each
+#     oligo at the CDC's own concentration (500 nM primers, 125 nM probe)
+#   - (version 3) finds primer dimers (Section 10): every pair of oligos
+#     lined up at every offset, the paired region's nearest-neighbor energy
+#     summed; salt and oligo amounts can be set by the user (QPCR_CONDITIONS)
 #
 # What it does NOT do yet:
 #   - insertions/deletions: no bulge-loop parameters yet (Tm "not computed")
 #   - two mismatches next to each other: no tandem-mismatch parameters
-#   - hairpins and primer dimers
+#   - hairpins (an oligo folding on itself needs loop parameters)
 #   - a full kinetic/efficiency model: the fraction bound is an equilibrium
 #     estimate, not a predicted Ct
 #
@@ -437,3 +444,284 @@ def print_temperature_report(title, result):
     for note in result["notes"]:
         print(f"NOTE: {note}")
     print(f"assay: first model {result['assay']}, at annealing {result['assay_at_ta']}")
+
+
+# =============================================================================
+# SECTION 9: TEMPERATURE RULES FOR A qPCR ASSAY   (added in version 2)
+# -----------------------------------------------------------------------------
+# Sections 1-8 check ONE assay against a genome. This section asks the
+# design question: are these oligos' temperatures right for qPCR at all?
+# Each qPCR cycle has two steps (CDC protocol):
+#
+#   95 C, 3 s   DENATURATION: the two DNA strands melt apart (unwind)
+#   55 C, 30 s  ANNEALING + EXTENSION: primers and probe bind, the polymerase
+#               copies, and the probe is cut (that is the signal)
+#
+# For that to work every cycle:
+#   1. PRIMERS MUST HOLD AT THE ANNEALING TEMPERATURE. A primer whose Tm is
+#      close to 55 C is only partly bound, so fewer templates are copied
+#      each cycle. Every CDC primer has a Tm at least 6.6 C above 55 C (so
+#      > 99 % bound). Rule: primer Tm >= annealing + 6 C.
+#      But not too far above: a primer that binds very strongly also holds
+#      on to sites with a few mismatches, so it is less specific.
+#      Rule: primer Tm <= annealing + 13 C (CDC's highest is +12.4).
+#   2. BOTH PRIMERS ALIKE. One annealing temperature serves both, so their
+#      Tms must be close: Rule: within 4 C (CDC N1: 3.7 C; Primer3's default
+#      is 3 C at its own conditions).
+#   3. PROBE ABOVE THE PRIMERS. The probe must already be sitting on the
+#      template when the primer is extended through it, or nothing is cut
+#      and there is no light. Rule: probe Tm >= the higher primer Tm + 2 C.
+#      (TaqMan guides say 5-10 C; CDC N1-N3 are +5.0 to +6.3, but CDC's
+#      RNase P probe is only +2.6, and it works, so 2 C is the floor.)
+#   4. THE PRODUCT MUST UNWIND AT THE DENATURATION STEP. The copied product
+#      is double-stranded; if its own Tm is near 95 C it does not fully melt
+#      apart, so it cannot be copied again. GC-rich and long products melt
+#      highest. Rule: product Tm <= denaturation - 5 C.
+#
+# Concentrations: CDC uses 500 nM of each primer and 125 nM probe (vs the
+# 250 nM of the Primer3 check), so each oligo's Tm uses its own amount.
+#
+# Product Tm (a long duplex; Primer3's formula for products):
+#   Tm = 81.5 + 16.6 * log10(Na_eq) + 0.41 * GC% - 600 / length
+# with Na_eq the same Mg2+-corrected salt as in Section 2.
+#
+# The Tm rules here (1-3) are for the perfect-match site. How a VARIANT's
+# mismatches lower those Tms is what Sections 5-6 compute.
+# =============================================================================
+
+# *****************************************************************************
+# ***   >>> USER SETTINGS: qPCR TEMPERATURE RULES <<<                       ***
+# *****************************************************************************
+DENATURATION_C = 95.0
+PRIMER_NM = 500.0                     # CDC: 500 nM each primer
+PROBE_NM = 125.0                      # CDC: 125 nM probe
+PRIMER_TM_ABOVE_ANNEALING = (6.0, 13.0)   # primer Tm from annealing + 6 to + 13 C
+PRIMER_TM_MAX_DIFFERENCE = 4.0
+PROBE_ABOVE_PRIMERS_C = 2.0
+PRODUCT_BELOW_DENATURATION_C = 5.0
+
+
+# The qPCR conditions the designer uses. The user can change any of them;
+# primer_nM and probe_nM replace oligo_nM (one amount for every oligo),
+# which stays for the Primer3 check.
+QPCR_CONDITIONS = dict(CONDITIONS, primer_nM=PRIMER_NM, probe_nM=PROBE_NM)
+CONDITION_LIMITS = {                   # what the designer accepts (typical qPCR mixes)
+    "monovalent_mM": (10.0, 200.0),
+    "divalent_mM": (0.0, 10.0),
+    "dntp_mM": (0.0, 2.0),
+    "primer_nM": (50.0, 2000.0),
+    "probe_nM": (50.0, 1000.0),
+}
+
+
+def conditions_for(role, conditions=CONDITIONS):
+    """The reaction conditions with this oligo's own concentration
+    (conditions' primer_nM / probe_nM if given, else the CDC amounts)."""
+    if role == "probe":
+        amount = conditions.get("probe_nM", PROBE_NM)
+    else:
+        amount = conditions.get("primer_nM", PRIMER_NM)
+    return dict(conditions, oligo_nM=amount)
+
+
+def check_conditions(conditions):
+    """Raise ValueError for a missing or out-of-range condition."""
+    for name, (low, high) in CONDITION_LIMITS.items():
+        value = conditions.get(name)
+        if not isinstance(value, (int, float)) or value != value or not low <= value <= high:
+            raise ValueError(f"{name.replace('_', ' ')} must be {low:g}-{high:g}")
+
+
+def product_tm(product, conditions=CONDITIONS):
+    """Tm of the double-stranded product (Primer3's long-sequence formula)."""
+    product = product.upper()
+    gc_percent = 100 * sum(base in "GC" for base in product) / len(product)
+    return (81.5 + 16.6 * math.log10(equivalent_sodium_molar(conditions))
+            + 0.41 * gc_percent - 600 / len(product))
+
+
+def oligo_at_annealing(oligo, role, annealing_c=ANNEALING_TEMP_C, conditions=CONDITIONS):
+    """Perfect-match Tm and fraction bound at the annealing temperature, at the role's amount."""
+    own = conditions_for(role, conditions)
+    if any(base not in "ACGT" for base in oligo):
+        return {"tm": None, "fraction_bound": None}
+    dh, ds, _ = duplex_energy(oligo, "".join(COMPLEMENT[b] for b in oligo))
+    return {"tm": perfect_tm(oligo, own),
+            "fraction_bound": fraction_bound(dh, ds, len(oligo), own, annealing_c)}
+
+
+def assay_temperature_check(forward, reverse, probe=None, product=None,
+                            annealing_c=ANNEALING_TEMP_C, conditions=CONDITIONS, dimers=True):
+    """Check rules 1-4 (and primer dimers, Section 10); returns each oligo's Tm
+    and fraction bound, the product Tm, the dimers, and a list of problems
+    (empty = the assay suits qPCR)."""
+    oligos = {"forward": forward.upper(), "reverse": reverse.upper()}
+    if probe:
+        oligos["probe"] = probe.upper()
+    result = {name: oligo_at_annealing(seq, name, annealing_c, conditions)
+              for name, seq in oligos.items()}
+    problems = []
+    low, high = (annealing_c + PRIMER_TM_ABOVE_ANNEALING[0], annealing_c + PRIMER_TM_ABOVE_ANNEALING[1])
+
+    primer_tms = []
+    for name in ("forward", "reverse"):
+        tm = result[name]["tm"]
+        if tm is None:
+            continue
+        primer_tms.append(tm)
+        if tm < low:
+            problems.append(f"{name} primer Tm {tm:.2f} C is too low: it should be at least "
+                            f"{low:.1f} C ({PRIMER_TM_ABOVE_ANNEALING[0]:.0f} C above the {annealing_c:.0f} C "
+                            f"annealing step)")
+        elif tm > high:
+            problems.append(f"{name} primer Tm {tm:.2f} C is too high (above {high:.1f} C): "
+                            f"it would also hold on to sites with mismatches")
+    if len(primer_tms) == 2 and abs(primer_tms[0] - primer_tms[1]) > PRIMER_TM_MAX_DIFFERENCE:
+        problems.append(f"the primers' Tms differ by {abs(primer_tms[0] - primer_tms[1]):.1f} C "
+                        f"(at most {PRIMER_TM_MAX_DIFFERENCE:.0f} C): one annealing temperature "
+                        f"cannot suit both")
+    if probe and result["probe"]["tm"] is not None and primer_tms:
+        needed = max(primer_tms) + PROBE_ABOVE_PRIMERS_C
+        if result["probe"]["tm"] < needed:
+            problems.append(f"probe Tm {result['probe']['tm']:.2f} C is too low: it should be at least "
+                            f"{needed:.2f} C ({PROBE_ABOVE_PRIMERS_C:.0f} C above the higher primer), "
+                            f"so it is bound before the primers are extended")
+    if product:
+        tm = product_tm(product, conditions)
+        result["product_tm"] = tm
+        if tm > DENATURATION_C - PRODUCT_BELOW_DENATURATION_C:
+            problems.append(f"product Tm {tm:.1f} C is too close to the {DENATURATION_C:.0f} C "
+                            f"denaturation step: the product may not fully unwind")
+    if dimers and all(set(seq) <= set("ACGT") for seq in oligos.values()):
+        result["dimers"], dimer_problems = dimer_check(oligos, conditions_for("forward", conditions))
+        problems.extend(dimer_problems)
+    result["problems"] = problems
+    result["ok"] = not problems
+    return result
+
+
+
+# =============================================================================
+# SECTION 10: PRIMER DIMERS   (added in version 3)
+# -----------------------------------------------------------------------------
+# Two oligos in the same tube can stick to EACH OTHER instead of the
+# template. If a primer's 3' end is in such a duplex, the polymerase extends
+# it and copies the other oligo: a short "primer-dimer" product that uses up
+# primers and, with SYBR-type dyes, gives false signal.
+#
+# Method (as in the proposal): line the two oligos up antiparallel at EVERY
+# relative offset (oligo A 5'->3' on top, oligo B 3'->5' below), and at each
+# offset take every paired region: a stretch that starts and ends with a
+# Watson-Crick pair. Its energy is summed with the same nearest-neighbor
+# tables as everything else (duplex_energy): matched stacks, plus single
+# internal mismatches inside the region (two side by side end it). The most
+# stable region over all offsets is the dimer.
+#
+#   dG(T) = 1000 * dH - (T + 273.15) * dS     (cal/mol, dS salt-corrected)
+#   reported at 37 C, the usual reference temperature for dimers.
+#
+# Compared with Primer3's homodimer dG for the CDC oligos
+# (data/primers/primer3_reference_tm.tsv), these values are 1-4 kcal/mol
+# LESS negative: Primer3 also counts bases dangling past the paired region
+# and loops. So the limits below were set on THIS method, using the CDC
+# assays (test case T14):
+#   most stable dimer of any kind: N2 probe with itself, -5.9 kcal/mol
+#   most stable dimer with a primer's 3' end paired: N2 forward on the
+#   probe, -3.1 kcal/mol
+# Rules (a design breaking either is flagged):
+#   any dimer                  dG(37 C) >= -9 kcal/mol (the common guideline)
+#   a primer's 3' end paired   dG(37 C) >= -5 kcal/mol (it can be extended)
+# A probe's 3' end does not count: TaqMan probes are blocked there.
+# =============================================================================
+
+DIMER_TEMP_C = 37.0
+DIMER_MAX_DG = -9000.0          # cal/mol
+DIMER_3END_MAX_DG = -5000.0     # cal/mol
+
+
+def dimer_scan(a, b, conditions=CONDITIONS, temp_c=DIMER_TEMP_C, extendable=(True, True)):
+    """The most stable paired region between oligos a and b (both 5'->3').
+
+    extendable = (a's 3' end counts, b's 3' end counts) for the 3'-end search.
+    Returns {"any": region, "three_prime": region or None}, each region
+    {"dG", "dH", "dS", "top", "bottom", "a_start", "b_start", "length"}.
+    """
+    below = b[::-1]                          # b written 3'->5' under a
+    best_any = best_end = None
+    log_salt = math.log(equivalent_sodium_molar(conditions))
+    kelvin = temp_c + 273.15
+    for offset in range(-(len(below) - 1), len(a)):
+        # a[i] faces below[i - offset]
+        first, last = max(0, offset), min(len(a), len(below) + offset)
+        paired = [below[i - offset] == COMPLEMENT.get(a[i]) for i in range(first, last)]
+        for start in range(first, last):
+            if not paired[start - first]:
+                continue
+            # grow the region one base at a time; the stacks are summed left
+            # to right as in duplex_energy, so the numbers are the same
+            dh = ds = 0.0
+            for k in range(start, last - 1):
+                this, nxt = paired[k - first], paired[k + 1 - first]
+                if not this and not nxt:
+                    break                    # two mismatches side by side end the region
+                table = MATCHED if this and nxt else INTERNAL_MISMATCH
+                value = stack_value(a[k:k + 2], below[k - offset:k - offset + 2], table)
+                dh, ds = dh + value[0], ds + value[1]
+                if not nxt:
+                    continue                 # a region must end with a pair
+                end = k + 1
+                top, bottom = a[start:end + 1], below[start - offset:end - offset + 1]
+                region_dh, region_ds = dh, ds
+                for base in (top[0], top[-1]):
+                    init = MATCHED["init_w_term_GC"] if base in "GC" else MATCHED["init_w_term_AT"]
+                    region_dh, region_ds = region_dh + init[0], region_ds + init[1]
+                if all(paired[start - first:end - first + 1]) and top == reverse_complement(top):
+                    region_dh += MATCHED["symmetry_correction"][0]
+                    region_ds += MATCHED["symmetry_correction"][1]
+                length = end - start + 1
+                dg = 1000 * region_dh - kelvin * (region_ds + 0.368 * (length - 1) * log_salt)
+                if best_any is not None and dg >= best_any["dG"] and not (
+                        (extendable[0] and end == len(a) - 1) or (extendable[1] and start - offset == 0)):
+                    continue
+                region = {"dG": dg, "dH": region_dh, "dS": region_ds, "top": top, "bottom": bottom,
+                          "a_start": start, "b_start": len(b) - 1 - (end - offset), "length": length}
+                if best_any is None or dg < best_any["dG"]:
+                    best_any = region
+                a_end = extendable[0] and end == len(a) - 1
+                b_end = extendable[1] and start - offset == 0
+                if (a_end or b_end) and (best_end is None or dg < best_end["dG"]):
+                    best_end = region
+    return {"any": best_any, "three_prime": best_end}
+
+
+def dimer_check(oligos, conditions=CONDITIONS, cache=None):
+    """Every self- and cross-dimer among {name: seq}; returns (dimers, problems).
+
+    dimers: [{"pair": "forward/reverse", "any": ..., "three_prime": ...}, ...]
+    cache: an optional dict, reused across calls with the SAME conditions, so a
+    primer that appears in many designs is scanned once per partner.
+    """
+    names = list(oligos)
+    dimers, problems = [], []
+    for x, first in enumerate(names):
+        for second in names[x:]:
+            extendable = (first != "probe", second != "probe")
+            key = (oligos[first], oligos[second], extendable)
+            if cache is not None and key in cache:
+                scan = cache[key]
+            else:
+                scan = dimer_scan(oligos[first], oligos[second], conditions, extendable=extendable)
+                if cache is not None:
+                    cache[key] = scan
+            pair = first if first == second else f"{first}/{second}"
+            dimers.append({"pair": pair, **scan})
+            worst = scan["any"]
+            if worst and worst["dG"] < DIMER_MAX_DG:
+                problems.append(f"{pair} dimer: {worst['length']} bp, dG {worst['dG'] / 1000:.1f} kcal/mol "
+                                f"(more stable than {DIMER_MAX_DG / 1000:.0f}): the oligos stick to each other")
+            end = scan["three_prime"]
+            if end and end["dG"] < DIMER_3END_MAX_DG:
+                problems.append(f"{pair} dimer at a primer's 3' end: {end['length']} bp, dG "
+                                f"{end['dG'] / 1000:.1f} kcal/mol (more stable than "
+                                f"{DIMER_3END_MAX_DG / 1000:.0f}): it can be extended into a primer-dimer")
+    return dimers, problems

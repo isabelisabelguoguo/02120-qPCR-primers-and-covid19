@@ -1,10 +1,13 @@
 # =============================================================================
-# TESTS FOR: SECOND MODEL: FACTOR: ANNEALING TEMPERATURE   (version 1)
+# TESTS FOR: SECOND MODEL: FACTOR: ANNEALING TEMPERATURE   (version 3)
 # =============================================================================
 # The model lives in second_model_annealing_temp.py; this file only tests it.
 # The numbers in Cases T1-T4 can be added up by hand from the three tables in
 # data/thermodynamics/ (every stack used is listed in the comments). Case T5
 # reproduces published values: Primer3's Tm for the 11 CDC oligos.
+# Cases T9-T12 (version 2) test the qPCR temperature rules (Section 9).
+# Cases T13-T16 (version 3) test primer dimers (Section 10) and the user's
+# reaction conditions.
 #
 # Fake primers and targets are the 18-30 base ones from the first model's
 # tests (test_first_model_factor_specificity.py).
@@ -20,6 +23,8 @@ from first_model_factor_specificity import COMPLEMENT
 from second_model_annealing_temp import (
     CONDITIONS, PROJECT, duplex_energy, equivalent_sodium_molar, fraction_bound,
     melting_temperature, perfect_tm, print_temperature_report, run_temperature_model,
+    assay_temperature_check, conditions_for, product_tm,
+    QPCR_CONDITIONS, check_conditions, dimer_check, dimer_scan,
 )
 from test_first_model_factor_specificity import (
     FORWARD_A, FORWARD_B, PROBE_A, REVERSE_A, amplicon, check, filler, mutate,
@@ -226,6 +231,146 @@ def case_indel_not_computed():
     check(result["assay_at_ta"] == result["assay"] == "product", "status unchanged: product")
 
 
+# -- Case T9: product Tm by hand ----------------------------------------------
+# Salt: Na_eq = 50 mM + 120 * sqrt(3.0 - 0.8 mM) = 227.99 mM = 0.22799 M
+# A 60 bp product with 30 G/C (50 %):
+#   81.5 + 16.6 * log10(0.22799) + 0.41 * 50 - 600 / 60
+#   = 81.5 - 10.659 + 20.5 - 10.0 = 81.34 C
+# 150 bp of pure G/C: 81.5 - 10.659 + 41.0 - 4.0 = 107.84 C (cannot unwind at 95 C)
+def case_product_tm():
+    print("\n--- Case T9: product Tm by hand ---")
+    check(close(product_tm("GCAT" * 15), 81.34), f"60 bp, 50 % GC: 81.34 C (got {product_tm('GCAT' * 15):.2f})")
+    check(close(product_tm("GC" * 75), 107.84), f"150 bp, 100 % GC: 107.84 C (got {product_tm('GC' * 75):.2f})")
+    gc_rich = assay_temperature_check("GACCCCAAAATCAGCGAAAT", "TCTGGTTACTGCCAGTTGAATCTG",
+                                      product="GC" * 75)
+    check(any("unwind" in p for p in gc_rich["problems"]),
+          "a 100 % GC product is flagged: it may not unwind at 95 C")
+
+
+# -- Case T10: each oligo at its own concentration ----------------------------
+# CDC: 500 nM primers, 125 nM probe. Doubling the oligo raises the Tm (more
+# strands to find each other), so a primer at 500 nM melts higher than at
+# the 250 nM of the Primer3 check, and the probe at 125 nM lower.
+def case_concentrations():
+    print("\n--- Case T10: primers at 500 nM, probe at 125 nM ---")
+    check(conditions_for("forward")["oligo_nM"] == 500 and conditions_for("probe")["oligo_nM"] == 125,
+          "primers 500 nM, probe 125 nM")
+    oligo = "GACCCCAAAATCAGCGAAAT"
+    check(perfect_tm(oligo, conditions_for("forward")) > perfect_tm(oligo, CONDITIONS) >
+          perfect_tm(oligo, conditions_for("probe")), "Tm: 500 nM > 250 nM > 125 nM")
+
+
+# -- Case T11: the CDC assays pass the temperature rules ----------------------
+# They are used in labs, so the rules must not reject them. Their numbers
+# (qPCR conditions, annealing 55 C):
+#        forward  reverse  probe   |F-R|  probe - higher primer
+#   N1   61.6     65.3     70.3    3.7    +5.0
+#   N2   62.1     63.6     69.3    1.6    +5.7
+#   N3   63.6     64.6     70.9    1.0    +6.3   (probe Y read as C)
+#   RP   65.5     67.4     70.0    1.9    +2.6
+CDC_ASSAYS = {
+    "N1": ("GACCCCAAAATCAGCGAAAT", "TCTGGTTACTGCCAGTTGAATCTG", "ACCCCGCATTACGTTTGGTGGACC"),
+    "N2": ("TTACAAACATTGGCCGCAAA", "GCGCGACATTCCGAAGAA", "ACAATTTGCCCCCAGCGCTTCAG"),
+    "N3": ("GGGAGCCTTGAATACACCAAAA", "TGTAGCACGATTGCAGCATTG", "ACCACATTGGCACCCGCAATCCTG"),
+    "RP": ("AGATTTGGACCTGCGAGCG", "GAGCGGCTGTCTCCACAAGT", "TTCTGACCTGAAGGCTCTGCGCG"),
+}
+
+
+def case_cdc_pass():
+    print("\n--- Case T11: CDC N1, N2, N3 and RNase P pass ---")
+    for name, (forward, reverse, probe) in CDC_ASSAYS.items():
+        result = assay_temperature_check(forward, reverse, probe)
+        check(result["ok"], f"{name}: no temperature problems {result['problems']}")
+    check(close(assay_temperature_check(*CDC_ASSAYS["N1"])["forward"]["tm"], 61.6, 0.05),
+          "N1 forward Tm at 500 nM is 61.6 C")
+
+
+# -- Case T12: the designer's old N gene picks fail, each for its reason ------
+#   design 1: forward 58.1 C, reverse 61.0 C   -> both below 61 C
+#   design 2: probe 60.4 C, primers 59.8/59.3  -> primers low, probe not above
+#   design 3: forward 66.9, reverse 62.2 C     -> 4.6 C apart; probe 57.5 C
+def case_old_designs_fail():
+    print("\n--- Case T12: the designer's old N gene designs fail ---")
+    one = assay_temperature_check("TGTCTGATAATGGACCCC", "AGGGTCCACCAAACGTAA", "AAAATCAGCGAAATGCACCCCG")
+    check(sum("too low" in p and "primer" in p for p in one["problems"]) == 2, "design 1: both primers too low")
+    two = assay_temperature_check("CAGAATGGAGAACGCAGT", "ATTGGGTAAACCTTGGGG", "GCGCGATCAAAACAACGT")
+    check(any(p.startswith("probe") for p in two["problems"]), "design 2: probe not above the primers")
+    three = assay_temperature_check("TTGGTTCACCGCTCTCACTCAA", "CCTTGTCCTCGAGGGAATTT", "CATGGCAAGGAAGACCTT")
+    check(any("differ by 4.6" in p for p in three["problems"]), "design 3: primers 4.6 C apart")
+    check(any(p.startswith("probe") for p in three["problems"]), "design 3: probe below the primers")
+    high = assay_temperature_check("GCGCGGCCGCGGCGCCGCGG", "GCGCGGCCGCGGCGCCGCGG")
+    check(any("too high" in p for p in high["problems"]), "a 100 % GC primer is too high")
+
+
+# -- Case T13: a dimer by hand ------------------------------------------------
+# TTTTGCGCTTTT lined up against itself: T faces T everywhere except the
+# middle GCGC, which pairs with itself (it is a palindrome). The T/T
+# mismatches on each side come in pairs, so the region cannot grow.
+#   stacks GC -9.8/-24.4, CG -10.6/-27.2, GC -9.8/-24.4  = -30.2 / -76.0
+#   initiation, G-C at both ends: 2 x (+0.1/-2.8)       = +0.2 / -5.6
+#   symmetry (self-complementary)                         =  0.0 / -1.4
+#   total dH -30.0 kcal/mol, dS -83.0 cal/(K mol)
+#   salt: dS + 0.368 * 3 * ln(0.22799) = -84.632
+#   dG(37 C) = -30000 - 310.15 * (-84.632) = -3751.3 cal/mol
+def case_dimer_by_hand():
+    print("\n--- Case T13: a self-dimer by hand ---")
+    scan = dimer_scan("TTTTGCGCTTTT", "TTTTGCGCTTTT", CONDITIONS)
+    region = scan["any"]
+    check(region["top"] == "GCGC" and region["bottom"] == "CGCG", "the paired region is GCGC/CGCG")
+    check(close(region["dG"], -3751.3, 0.1), f"dG(37 C) = -3751.3 cal/mol (got {region['dG']:.1f})")
+    check(scan["three_prime"] is None, "the 3' ends (T) are not paired")
+
+
+# -- Case T14: the CDC assays have no dimer problem ---------------------------
+# Most stable dimers (this method, 37 C): N2 probe with itself -5.9 kcal/mol;
+# with a primer's 3' end paired: N2 forward on the probe -3.1. Limits -9 / -5.
+def case_cdc_dimers():
+    print("\n--- Case T14: CDC assays pass the dimer rules ---")
+    worst_any = worst_end = 0
+    for name, (forward, reverse, probe) in CDC_ASSAYS.items():
+        dimers, problems = dimer_check({"forward": forward, "reverse": reverse, "probe": probe},
+                                       conditions_for("forward"))
+        check(not problems and len(dimers) == 6, f"{name}: 6 oligo pairs, no dimer problem")
+        worst_any = min(worst_any, min(d["any"]["dG"] for d in dimers))
+        worst_end = min(worst_end, min(d["three_prime"]["dG"] for d in dimers if d["three_prime"]))
+    check(close(worst_any, -5868, 5), f"most stable CDC dimer -5.87 kcal/mol (got {worst_any / 1000:.2f})")
+    check(close(worst_end, -3050, 5), f"most stable at a primer 3' end -3.05 (got {worst_end / 1000:.2f})")
+
+
+# -- Case T15: a primer pair built to dimerise is caught ---------------------
+# The two primers' last 9 bases (ATGCGCGCA / CATGCGCGCAT region) pair with
+# each other at their 3' ends, so the polymerase could extend them.
+def case_bad_dimer():
+    print("\n--- Case T15: primers whose 3' ends pair are flagged ---")
+    result = assay_temperature_check("ACGTTAGCCTAGGCATGCGCGCAT", "TTCAGGATCCTAAGCATGCGCGCA")
+    check(any("forward/reverse dimer at a primer's 3' end" in p for p in result["problems"]),
+          "forward/reverse 3'-end dimer flagged")
+    _, probe_only = dimer_check({"probe": "ACGTTAGCCTAGGCATGCGCGCAT"}, conditions_for("probe"))
+    check(not any("3' end" in p for p in probe_only),
+          "the same sequence as a probe: its 3' end does not count (TaqMan probes are blocked)")
+
+
+# -- Case T16: the user's reaction conditions --------------------------------
+# More Mg2+ or more primer -> higher Tm; values outside the limits are refused.
+def case_user_conditions():
+    print("\n--- Case T16: user-set salt and oligo amounts ---")
+    oligo = "GACCCCAAAATCAGCGAAAT"
+    base = perfect_tm(oligo, conditions_for("forward", QPCR_CONDITIONS))
+    more_mg = perfect_tm(oligo, conditions_for("forward", dict(QPCR_CONDITIONS, divalent_mM=5.0)))
+    more_primer = perfect_tm(oligo, conditions_for("forward", dict(QPCR_CONDITIONS, primer_nM=900.0)))
+    check(more_mg > base and more_primer > base,
+          f"Tm {base:.1f} C rises with 5 mM Mg2+ ({more_mg:.1f}) and 900 nM primer ({more_primer:.1f})")
+    check(conditions_for("probe", dict(QPCR_CONDITIONS, probe_nM=250.0))["oligo_nM"] == 250,
+          "the probe uses the user's probe amount")
+    for name, value in (("divalent_mM", 20.0), ("primer_nM", 10.0)):
+        try:
+            check_conditions(dict(QPCR_CONDITIONS, **{name: value}))
+        except ValueError as error:
+            check(True, f"{name} = {value:g} refused ({error})")
+        else:
+            raise AssertionError(f"{name} = {value:g} accepted")
+
+
 if __name__ == "__main__":
     case_stack_sum()
     case_tm_by_hand()
@@ -238,4 +383,12 @@ if __name__ == "__main__":
     case_status_at_annealing()
     case_probe_melts()
     case_indel_not_computed()
+    case_product_tm()
+    case_concentrations()
+    case_cdc_pass()
+    case_old_designs_fail()
+    case_dimer_by_hand()
+    case_cdc_dimers()
+    case_bad_dimer()
+    case_user_conditions()
     print("\nAll cases passed.")

@@ -1,11 +1,15 @@
 # =============================================================================
 # CHECK: does the website's JavaScript designer agree with primer_design.py?
 # =============================================================================
-# The website (website/index.html) runs website/primer_design.js, a
-# JavaScript translation of primer_design.py and the first-model functions it
-# uses. This script runs BOTH on the same inputs and checks they return the
-# same designs (sequences, positions, product, penalty), the same counts and
-# the same warnings or error.
+# There are two websites, each with a JavaScript translation of the designer:
+#   website/              GC only: primer_design.py run with annealing_c=None
+#                         (version 3 behaviour)
+#   website_temperature/  with temperature: primer_design.py version 4 and
+#                         the second model's Tm and qPCR rules
+# This script runs the Python and each JavaScript version on the same inputs
+# and checks they return the same designs (sequences, positions, product,
+# penalty, and for the temperature site each oligo's Tm to 1e-9 C), the
+# same counts and the same warnings or error.
 #
 # Inputs: the fake genomes from test_primer_design.py, plus the real
 # reference genome (N gene, and the CDC N1 region).
@@ -23,10 +27,14 @@ import tempfile
 
 from first_model_factor_specificity import read_fasta, reverse_complement
 from primer_design import design_primers
+from second_model_annealing_temp import QPCR_CONDITIONS
 from test_primer_design import GENOME, SHIFT, TARGET, basic_genome, random_bases
 
 PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-JS_FILE = os.path.join(PROJECT, "website", "primer_design.js")
+SITES = {
+    "website (GC only)": (os.path.join(PROJECT, "website", "primer_design.js"), None),
+    "website_temperature": (os.path.join(PROJECT, "website_temperature", "primer_design.js"), 55.0),
+}
 
 
 # =============================================================================
@@ -82,7 +90,16 @@ def web_cases():
 def summary(result):
     """The parts of a result both versions must agree on."""
     keep = ("forward", "reverse", "probe")
+    tms = [None if d.get("tm") is None else
+           {k: round(v, 9) for k, v in d["tm"].items()} for d in result["designs"]]
+    dimers = [None if not d.get("dimers") else
+              [[x["pair"], round(x["any"]["dG"], 6), x["any"]["top"], x["any"]["bottom"],
+                None if x["three_prime"] is None else round(x["three_prime"]["dG"], 6)]
+               for x in d["dimers"]] for d in result["designs"]]
     return {
+        "tms": tms,
+        "dimers": dimers,
+        "dimer_rejected": result.get("dimer_rejected", 0),
         "warnings": result["warnings"],
         "target": result["target"],
         "possible": result["possible"],
@@ -93,20 +110,41 @@ def summary(result):
     }
 
 
-def run_python(genome, target, allowance, product):
+def run_python(genome, target, allowance, product, annealing, conditions=None):
     try:
-        return summary(design_primers(genome, target, allowance, *product))
+        return summary(design_primers(genome, target, allowance, *product, annealing_c=annealing,
+                                      conditions=conditions or QPCR_CONDITIONS))
     except ValueError as error:
         return {"error": str(error)}
 
 
-def run_javascript(all_cases):
-    inputs = [{"genome": g, "target": t, "allowance": a, "product": list(p)} for _, g, t, a, p in all_cases]
+def run_javascript(js_file, all_cases):
+    inputs = [{"genome": c[1], "target": c[2], "allowance": c[3], "product": list(c[4]),
+               "annealing": c[5], "conditions": c[6] if len(c) > 6 else None} for c in all_cases]
     runner = """
+    function round9(x) { return Math.round(x * 1e9) / 1e9; }
+    function round6(x) { return Math.round(x * 1e6) / 1e6; }
     var out = INPUTS.map(function (c) {
       try {
-        var r = PrimerDesign.designPrimers(c.genome, c.target, c.allowance, c.product[0], c.product[1]);
+        var r = c.annealing === "gc-site"
+          ? PrimerDesign.designPrimers(c.genome, c.target, c.allowance, c.product[0], c.product[1])
+          : PrimerDesign.designPrimers(c.genome, c.target, c.allowance, c.product[0], c.product[1], 3, c.annealing,
+                                       c.conditions || PrimerDesign.QPCR_CONDITIONS);
         return {
+          dimers: r.designs.map(function (d) {
+            if (!d.dimers) return null;
+            return d.dimers.map(function (x) {
+              return [x.pair, round6(x.any.dG), x.any.top, x.any.bottom,
+                      x.three_prime === null ? null : round6(x.three_prime.dG)];
+            });
+          }),
+          dimer_rejected: r.dimer_rejected,
+          tms: r.designs.map(function (d) {
+            if (!d.tm) return null;
+            var t = {};
+            for (var k in d.tm) t[k] = round9(d.tm[k]);
+            return t;
+          }),
           warnings: r.warnings, target: r.target, possible: r.possible, checked: r.checked,
           designs: r.designs.map(function (d) {
             return {
@@ -122,7 +160,7 @@ def run_javascript(all_cases):
     });
     JSON.stringify(out);
     """
-    with open(JS_FILE) as handle:
+    with open(js_file) as handle:
         script = handle.read() + "\nvar INPUTS = " + json.dumps(inputs) + ";\n" + runner
     with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as handle:
         handle.write(script)
@@ -135,20 +173,51 @@ def run_javascript(all_cases):
     return json.loads(output)
 
 
+def site_cases(site_annealing):
+    """Each case with its annealing temperature: the GC-only site uses None
+    (its designPrimers has no annealing argument: marked "gc-site"); the
+    temperature site runs every case at 55 C, plus a few at 60 C and without."""
+    if site_annealing is None:
+        return [(name, g, t, a, p, "gc-site") for name, g, t, a, p in cases()]
+    base = [(name, g, t, a, p, site_annealing) for name, g, t, a, p in cases()]
+    extra = [(f"{name}, {label}", g, t, a, p, ta) for name, g, t, a, p in cases()
+             if name in ("basic", "N gene, reference", "medium GC target", "low GC target")
+             for label, ta in (("annealing 60 C", 60.0), ("no temperature", None))]
+    errors = [("error: annealing 40 C", GENOME, TARGET, 2, (60, 150), 40.0),
+              ("error: annealing 80 C", GENOME, TARGET, 2, (60, 150), 80.0)]
+    mixes = [("5 mM Mg2+, 250 nM primer", dict(QPCR_CONDITIONS, divalent_mM=5.0, primer_nM=250.0)),
+             ("100 mM K+, 250 nM probe", dict(QPCR_CONDITIONS, monovalent_mM=100.0, probe_nM=250.0)),
+             ("error: 20 mM Mg2+", dict(QPCR_CONDITIONS, divalent_mM=20.0))]
+    conditions = [(f"{name}, {label}", g, t, a, p, site_annealing, mix) for name, g, t, a, p in cases()
+                  if name in ("basic", "N gene, reference") for label, mix in mixes]
+    return base + extra + errors + conditions
+
+
 if __name__ == "__main__":
-    all_cases = cases()
-    javascript = run_javascript(all_cases)
-    failures = 0
-    for (name, genome, target, allowance, product), js in zip(all_cases, javascript):
-        py = run_python(genome, target, allowance, product)
-        same = py == js
-        failures += not same
-        if "error" in py:
-            detail = "error: " + py["error"][:50]
-        else:
-            detail = f"{len(py['designs'])} designs, {py['possible']} possible"
-        print(f"  {'PASS' if same else 'FAIL'}: {name:28} {detail}")
-        if not same:
-            print("    Python:    ", json.dumps(py)[:300])
-            print("    JavaScript:", json.dumps(js)[:300])
-    print(f"\n{len(all_cases) - failures} of {len(all_cases)} cases give the same result in both.")
+    total_failures = 0
+    for site, (js_file, site_annealing) in SITES.items():
+        print(f"\n=== {site} ===")
+        all_cases = site_cases(site_annealing)
+        javascript = run_javascript(js_file, all_cases)
+        failures = 0
+        for case, js in zip(all_cases, javascript):
+            name, genome, target, allowance, product, annealing = case[:6]
+            py = run_python(genome, target, allowance, product,
+                            None if annealing == "gc-site" else annealing,
+                            case[6] if len(case) > 6 else None)
+            if annealing == "gc-site" and "error" not in js:
+                js = {**js, "tms": [None] * len(js.get("designs", [])),
+                      "dimers": [None] * len(js.get("designs", [])), "dimer_rejected": 0}
+            same = py == js
+            failures += not same
+            if "error" in py:
+                detail = "error: " + py["error"][:50]
+            else:
+                detail = f"{len(py['designs'])} designs, {py['possible']} possible"
+            print(f"  {'PASS' if same else 'FAIL'}: {name:40} {detail}")
+            if not same:
+                print("    Python:    ", json.dumps(py)[:400])
+                print("    JavaScript:", json.dumps(js)[:400])
+        print(f"{len(all_cases) - failures} of {len(all_cases)} cases give the same result in both.")
+        total_failures += failures
+    print("\nALL SAME" if not total_failures else f"\n{total_failures} DIFFERENCES")

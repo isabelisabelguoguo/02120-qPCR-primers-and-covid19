@@ -1,5 +1,5 @@
 # =============================================================================
-# PRIMER DESIGN: a qPCR primer pair + probe for a target gene   (version 3)
+# PRIMER DESIGN: a qPCR primer pair + probe for a target gene   (version 5)
 # =============================================================================
 # 02-120 project: Do early SARS-CoV-2 qPCR primers still match later variants?
 #
@@ -10,8 +10,21 @@
 # allowance, binding sites on both strands, product length, and whether the
 # probe lies inside the product.
 #
-# It does NOT use melting temperature or annealing temperature. It does use
-# GC content (Section 2b), because G-C pairs hold three hydrogen bonds to A-T's
+# Version 4 adds TEMPERATURE (from the second model,
+# second_model_annealing_temp.py, Section 9): each primer's and probe's
+# length is chosen for a melting temperature (Tm) that suits the qPCR's
+# annealing step, and a design is kept only if its temperatures pass the
+# second model's qPCR rules (primers 6-13 C above annealing and within 4 C
+# of each other, probe 2 C above the primers, product melts at 95 C).
+# Version 5: the salt and oligo amounts are the user's (conditions), and a
+# design is also rejected if its oligos form a primer dimer (second model,
+# Section 10).
+# Without temperature (annealing_c=None) it works as version 3 did, on GC
+# alone. Why it matters: version 3 picked 18-base primers that melt only
+# 3 C above the CDC's 55 C annealing step; NCBI Primer-BLAST would not have
+# chosen them (test_cases_web_specificity.txt, part C).
+#
+# It also uses GC content (Section 2b), because G-C pairs hold three hydrogen bonds to A-T's
 # two. Keeping each primer and probe at 40-60 % GC gives stable binding: a
 # GC-rich primer binds too strongly, also at sites it only partly matches; an
 # AT-rich one binds too weakly. A GC-rich template also folds on itself and
@@ -25,6 +38,11 @@
 #   max_mismatches  - the mismatch allowance, 0 to MAX_ALLOWED_MISMATCHES (2)
 #   min_product,    - the product length range (default 60-150 bp); designs
 #   max_product       are only made inside it, and shorter ones rank higher
+#   annealing_c     - the qPCR annealing temperature (default 55 C, the CDC
+#                     protocol); None = ignore temperature (version 3)
+#   conditions      - K+/Na+, Mg2+, dNTPs, primer and probe amounts
+#                     (default QPCR_CONDITIONS: 50 mM, 3 mM, 0.8 mM, 500 nM,
+#                     125 nM)
 #
 # Output, for each design (best first):
 #   5'-forward-3', and 3'-reverse-5' (the reverse primer written backwards, so
@@ -38,13 +56,19 @@
 #   1. find the target in the genome
 #   2. every position in the target can start a forward primer (or end a
 #      reverse primer, or start a probe). Its length (primers 18-24, probes
-#      18-30) is the one with GC closest to 50 %, among windows made of known
-#      bases (A/C/G/T only) with 40-60 % GC
+#      18-30), among windows made of known bases (A/C/G/T only) with
+#      40-60 % GC, is the one whose Tm is closest to the target Tm
+#      (primers: annealing + 8 C; probe: annealing + 15 C), with primers
+#      only allowed 6-13 C above annealing. Without temperature: the one
+#      with GC closest to 50 %.
 #   3. pair each forward with each reverse downstream of it that gives a
 #      product within the chosen range (min_product to max_product), and put
-#      the probe whose middle is closest to the middle of the gap between them
+#      the probe whose middle is closest to the middle of the gap between them.
+#      With temperature: the primers' Tms must be within 4 C, the probe at
+#      least 2 C above both, and the product must melt at the 95 C step.
 #   4. rank the designs, best match first (Section 3b), and walk down the
-#      ranking; keep a design only if, on the WHOLE genome and within the
+#      ranking; with temperature, skip a design whose oligos form a primer
+#      dimer; keep a design only if, on the WHOLE genome and within the
 #      mismatch allowance,
 #        - each oligo has exactly one binding site, and
 #        - run_model finds exactly one product, status "product", at the
@@ -53,8 +77,9 @@
 # Run the demo with:  python3 journal/primer_design.py
 #   (designs primers for the N gene of the reference genome)
 # Or with your own files:
-#   python3 journal/primer_design.py genome.fasta target.fasta 2 60 150
-#   (the last three, allowance and product range, can be left out)
+#   python3 journal/primer_design.py genome.fasta target.fasta 2 60 150 55
+#   (the last four, allowance, product range and annealing temperature, can
+#   be left out; annealing "none" = no temperature, as in version 3)
 # =============================================================================
 
 import glob
@@ -64,6 +89,11 @@ import sys
 from first_model_factor_specificity import (
     KNOWN_BASES, build_kmer_index, find_binding_sites, read_fasta, reverse_complement,
     run_model,
+)
+from second_model_annealing_temp import (
+    ANNEALING_TEMP_C, DENATURATION_C, PRIMER_TM_ABOVE_ANNEALING, PRIMER_TM_MAX_DIFFERENCE,
+    PROBE_ABOVE_PRIMERS_C, PRODUCT_BELOW_DENATURATION_C, QPCR_CONDITIONS, check_conditions,
+    conditions_for, dimer_check, perfect_tm, product_tm,
 )
 
 
@@ -98,6 +128,14 @@ MIN_PRODUCT = 54            # room for an 18-base forward, probe and reverse
 QPCR_PRODUCT = (60, 150)    # qPCR works best here; a range outside it gives a warning
 MAX_ALLOWED_MISMATCHES = 2
 DESIGNS_WANTED = 3
+
+# Temperature (version 4). Each oligo's length is chosen for a Tm closest to
+# annealing + these (55 C annealing: primers 63 C, probe 70 C). They sit in
+# the middle of the CDC assays' Tms at qPCR conditions (primers 61.6-67.4 C,
+# probes 69.3-70.9 C; second model, test case T11).
+PRIMER_TM_TARGET_ABOVE = 8.0
+PROBE_TM_TARGET_ABOVE = 15.0
+ANNEALING_RANGE = (45.0, 72.0)   # annealing temperatures the designer accepts
 
 
 # =============================================================================
@@ -203,12 +241,23 @@ def usable(seq):
     return known(seq) and OLIGO_GC[0] <= gc_fraction(seq) <= OLIGO_GC[1]
 
 
-def choose_length(genome, anchor, lengths, region_start, region_end, grow):
-    """The one window for this anchor: the usable length with GC closest to 50 %.
+def target_tm(role, annealing_c):
+    return annealing_c + (PROBE_TM_TARGET_ABOVE if role == "probe" else PRIMER_TM_TARGET_ABOVE)
 
+
+def choose_length(genome, anchor, lengths, region_start, region_end, grow,
+                  role="forward", annealing_c=None, conditions=QPCR_CONDITIONS):
+    """The one window for this anchor.
+
+    With temperature: the usable length whose Tm (at the role's own
+    concentration) is closest to target_tm; a primer must also be 6-13 C
+    above annealing. Without (annealing_c None): the usable length with GC
+    closest to 50 %.
     grow "right": the window is anchor .. anchor + length (forward primer, probe)
     grow "left":  the window is anchor - length .. anchor (reverse primer)
-    Ties go to the shorter length. Returns (start, end), or None if no length works.
+    The Tm is the same for the window and its reverse complement (the same
+    duplex), so the reverse primer's window can be used directly.
+    Ties go to the shorter length. Returns (start, end, Tm or None), or None.
     """
     best = None
     for length in range(lengths[0], lengths[1] + 1):
@@ -218,29 +267,42 @@ def choose_length(genome, anchor, lengths, region_start, region_end, grow):
         window = genome[start:end]
         if not usable(window):
             continue
-        distance = abs(gc_fraction(window) - IDEAL_GC)
+        tm = None
+        if annealing_c is None:
+            distance = abs(gc_fraction(window) - IDEAL_GC)
+        else:
+            tm = perfect_tm(window, conditions_for(role, conditions))
+            if role != "probe" and not (annealing_c + PRIMER_TM_ABOVE_ANNEALING[0] <= tm
+                                        <= annealing_c + PRIMER_TM_ABOVE_ANNEALING[1]):
+                continue
+            distance = abs(tm - target_tm(role, annealing_c))
         if best is None or distance < best[0]:   # strictly closer, so ties keep the shorter
-            best = (distance, start, end)
+            best = (distance, start, end, tm)
     return None if best is None else best[1:]
 
 
-def all_windows(genome, anchors, lengths, region_start, region_end, grow):
-    """{anchor: (start, end)} for every anchor that has a usable length."""
+def all_windows(genome, anchors, lengths, region_start, region_end, grow,
+                role="forward", annealing_c=None, conditions=QPCR_CONDITIONS):
+    """{anchor: (start, end, Tm)} for every anchor that has a usable length."""
     windows = {}
     for anchor in anchors:
-        window = choose_length(genome, anchor, lengths, region_start, region_end, grow)
+        window = choose_length(genome, anchor, lengths, region_start, region_end, grow,
+                               role, annealing_c, conditions)
         if window:
             windows[anchor] = window
     return windows
 
 
-def centred_probe(probes, gap_start, gap_end):
-    """The probe window inside the gap whose middle is closest to the gap's middle."""
+def centred_probe(probes, gap_start, gap_end, min_tm=None):
+    """The probe window inside the gap whose middle is closest to the gap's middle
+    (with temperature: only probes with Tm >= min_tm)."""
     middle = (gap_start + gap_end) / 2
     best = None
     for start in range(gap_start, gap_end - PROBE_LENGTH[0] + 1):
         window = probes.get(start)
         if window is None or window[1] > gap_end:
+            continue
+        if min_tm is not None and window[2] < min_tm:
             continue
         distance = abs((window[0] + window[1]) / 2 - middle)
         if best is None or distance < best[0]:
@@ -249,32 +311,49 @@ def centred_probe(probes, gap_start, gap_end):
 
 
 def possible_designs(genome, region_start, region_end, min_product=PRODUCT_RANGE[0],
-                     max_product=PRODUCT_RANGE[1]):
+                     max_product=PRODUCT_RANGE[1], annealing_c=None, conditions=QPCR_CONDITIONS):
     """Every forward/reverse/probe design inside the target, best first."""
     shortest, longest = min_product, max_product
+    temperature = annealing_c is not None
     # forward and probe: anchored at their 5' end (left), grow right
     forwards = all_windows(genome, range(region_start, region_end), PRIMER_LENGTH,
-                           region_start, region_end, "right")
+                           region_start, region_end, "right", "forward", annealing_c, conditions)
     probes = all_windows(genome, range(region_start, region_end), PROBE_LENGTH,
-                         region_start, region_end, "right")
+                         region_start, region_end, "right", "probe", annealing_c, conditions)
     # reverse: anchored at its 5' end, which is the window's RIGHT end; grows left
     reverses = all_windows(genome, range(region_start + 1, region_end + 1), PRIMER_LENGTH,
-                           region_start, region_end, "left")
+                           region_start, region_end, "left", "reverse", annealing_c, conditions)
 
     designs = []
-    for forward_start, (_, forward_end) in forwards.items():
+    for forward_start, (_, forward_end, forward_tm) in forwards.items():
         for product_end in range(forward_start + shortest, forward_start + longest + 1):
             if product_end not in reverses:
                 continue
-            reverse_start = reverses[product_end][0]
+            reverse_start, _, reverse_tm = reverses[product_end]
             if reverse_start - forward_end < PROBE_LENGTH[0]:
                 continue  # no room for the probe between the primers
-            probe_window = centred_probe(probes, forward_end, reverse_start)
+            min_probe_tm = None
+            if temperature:
+                if abs(forward_tm - reverse_tm) > PRIMER_TM_MAX_DIFFERENCE:
+                    continue  # one annealing temperature cannot suit both
+                min_probe_tm = max(forward_tm, reverse_tm) + PROBE_ABOVE_PRIMERS_C
+            probe_window = centred_probe(probes, forward_end, reverse_start, min_probe_tm)
             if probe_window is None:
                 continue
             forward = genome[forward_start:forward_end]
             reverse_window = genome[reverse_start:product_end]
             probe = genome[probe_window[0]:probe_window[1]]
+            amplicon_tm = None
+            if temperature:
+                amplicon_tm = product_tm(genome[forward_start:product_end], conditions)
+                if amplicon_tm > DENATURATION_C - PRODUCT_BELOW_DENATURATION_C:
+                    continue  # the product would not fully unwind at 95 C
+            if temperature:
+                penalty = temperature_penalty(forward_tm, reverse_tm, probe_window[2],
+                                              product_end - forward_start, shortest, annealing_c)
+            else:
+                penalty = match_penalty(forward, reverse_window, probe,
+                                        product_end - forward_start, min_product)
             designs.append({
                 "forward": {"seq": forward, "start": forward_start, "end": forward_end},
                 "reverse": {"seq": reverse_complement(reverse_window),
@@ -283,8 +362,10 @@ def possible_designs(genome, region_start, region_end, min_product=PRODUCT_RANGE
                 "product_start": forward_start,
                 "product_end": product_end,
                 "product_length": product_end - forward_start,
-                "match_penalty": match_penalty(forward, reverse_window, probe,
-                                               product_end - forward_start, min_product),
+                "match_penalty": penalty,
+                "tm": None if not temperature else {
+                    "forward": forward_tm, "reverse": reverse_tm, "probe": probe_window[2],
+                    "product": amplicon_tm},
             })
     designs.sort(key=lambda d: (d["match_penalty"], d["product_start"]))
     return designs
@@ -309,6 +390,24 @@ def match_penalty(forward, reverse_window, probe, product_length, min_product=PR
     gc_points = sum(abs(100 * gc_fraction(seq) - 100 * IDEAL_GC)
                     for seq in (forward, reverse_window, probe))
     return round(gc_points + (product_length - min_product) / 10, 2)
+
+
+# With temperature (version 4) the GC part is replaced by Tm:
+#
+#   penalty = |forward Tm - primer target| + |reverse Tm - primer target|
+#           + |probe Tm - probe target|          (in C; targets = annealing
+#                                                  + 8 C and + 15 C)
+#           + (product length - shortest allowed product) / 10
+#
+# 1 point = 1 C away from the target Tm on one oligo = 10 bp of product.
+# (GC still has to be 40-60 % for every oligo; it is no longer ranked.)
+
+def temperature_penalty(forward_tm, reverse_tm, probe_tm, product_length, min_product,
+                        annealing_c):
+    tm_points = (abs(forward_tm - target_tm("forward", annealing_c))
+                 + abs(reverse_tm - target_tm("reverse", annealing_c))
+                 + abs(probe_tm - target_tm("probe", annealing_c)))
+    return round(tm_points + (product_length - min_product) / 10, 2)
 
 
 # =============================================================================
@@ -348,7 +447,8 @@ def specific(design, genome, index, max_mismatches, cache):
 # =============================================================================
 
 def design_primers(genome, target, max_mismatches=2, min_product=PRODUCT_RANGE[0],
-                   max_product=PRODUCT_RANGE[1], designs_wanted=DESIGNS_WANTED):
+                   max_product=PRODUCT_RANGE[1], designs_wanted=DESIGNS_WANTED,
+                   annealing_c=ANNEALING_TEMP_C, conditions=QPCR_CONDITIONS):
     """Design up to designs_wanted primer pairs + probes for target, best first."""
     genome, target = clean_sequence(genome), clean_sequence(target)
     if not 0 <= max_mismatches <= MAX_ALLOWED_MISMATCHES:
@@ -359,6 +459,11 @@ def design_primers(genome, target, max_mismatches=2, min_product=PRODUCT_RANGE[0
     if max_product < min_product:
         raise ValueError(f"the longest product ({max_product} bp) is shorter than the "
                          f"shortest ({min_product} bp)")
+    if annealing_c is not None and not ANNEALING_RANGE[0] <= annealing_c <= ANNEALING_RANGE[1]:
+        raise ValueError(f"the annealing temperature must be {ANNEALING_RANGE[0]:.0f}-"
+                         f"{ANNEALING_RANGE[1]:.0f} C (qPCR usually anneals at 55-65 C)")
+    if annealing_c is not None:
+        check_conditions(conditions)
     if len(target) < min_product:
         raise ValueError(f"the target ({len(target)} bases) is shorter than the "
                          f"shortest product asked for ({min_product} bp)")
@@ -373,10 +478,11 @@ def design_primers(genome, target, max_mismatches=2, min_product=PRODUCT_RANGE[0
                         f"{QPCR_PRODUCT[0]}-{QPCR_PRODUCT[1]} bp, where qPCR works best")
 
     region_start, region_end, strand = find_target(genome, target)
-    designs = possible_designs(genome, region_start, region_end, min_product, max_product)
+    designs = possible_designs(genome, region_start, region_end, min_product, max_product,
+                               annealing_c, conditions)
 
     index = build_kmer_index(genome, K)
-    cache, chosen, checked = {}, [], 0
+    cache, dimer_cache, chosen, checked, dimer_rejected = {}, {}, [], 0, 0
     for design in designs:
         if len(chosen) == designs_wanted:
             break
@@ -385,21 +491,39 @@ def design_primers(genome, target, max_mismatches=2, min_product=PRODUCT_RANGE[0
         if any(design["product_start"] < d["product_end"] and d["product_start"] < design["product_end"]
                for d in chosen):
             continue
+        if annealing_c is not None:
+            dimers, problems = dimer_check({role: design[role]["seq"]
+                                            for role in ("forward", "reverse", "probe")},
+                                           conditions_for("forward", conditions), dimer_cache)
+            if problems:
+                dimer_rejected += 1
+                continue
+            design["dimers"] = dimers
         checked += 1
         if specific(design, genome, index, max_mismatches, cache):
             chosen.append(design)
 
     if not designs:
+        temperature_rules = ("" if annealing_c is None else
+                             f" and whose temperatures suit annealing at {annealing_c:g} C "
+                             f"(primers {annealing_c + PRIMER_TM_ABOVE_ANNEALING[0]:g}-"
+                             f"{annealing_c + PRIMER_TM_ABOVE_ANNEALING[1]:g} C and within "
+                             f"{PRIMER_TM_MAX_DIFFERENCE:g} C of each other, probe "
+                             f"{PROBE_ABOVE_PRIMERS_C:g} C above them)")
         warnings.append("no design: the target has no forward, reverse and probe "
-                        f"stretches with {round(100 * OLIGO_GC[0])}-{round(100 * OLIGO_GC[1])} % GC "
-                        f"that fit together into a {min_product}-{max_product} bp product")
+                        f"stretches with {round(100 * OLIGO_GC[0])}-{round(100 * OLIGO_GC[1])} % GC"
+                        f"{temperature_rules} that fit together into a "
+                        f"{min_product}-{max_product} bp product")
 
     return {
         "warnings": warnings,
         "target": {"start": region_start, "end": region_end, "strand": strand},
         "product_range": (min_product, max_product),
+        "annealing_c": annealing_c,
         "possible": len(designs),
         "checked": checked,
+        "dimer_rejected": dimer_rejected,
+        "conditions": None if annealing_c is None else dict(conditions),
         "designs": chosen,
     }
 
@@ -414,8 +538,15 @@ def print_designs(result, max_mismatches):
           f"({target['strand']} strand), {target['end'] - target['start']} bases")
     shortest, longest = result["product_range"]
     print(f"Product length: {shortest}-{longest} bp (shorter ranks higher)")
-    print(f"{result['possible']} possible designs; {result['checked']} checked against "
-          f"the whole genome (mismatch allowance {max_mismatches}).\n")
+    if result["annealing_c"] is None:
+        print("Temperature: not used (GC only, as in version 3)")
+    else:
+        print(f"Annealing at {result['annealing_c']:g} C: primer Tm aimed at "
+              f"{target_tm('forward', result['annealing_c']):g} C, probe at "
+              f"{target_tm('probe', result['annealing_c']):g} C")
+    print(f"{result['possible']} possible designs; {result['dimer_rejected']} skipped for primer "
+          f"dimers; {result['checked']} checked against the whole genome (mismatch allowance "
+          f"{max_mismatches}).\n")
     for warning in result["warnings"]:
         print(f"WARNING: {warning}")
     if result["warnings"]:
@@ -426,16 +557,23 @@ def print_designs(result, max_mismatches):
         return
     for number, design in enumerate(result["designs"], 1):
         forward, reverse, probe = design["forward"], design["reverse"], design["probe"]
+        tm = design["tm"] or {}
+        temp = {name: "" if name not in tm else f", Tm {tm[name]:.1f} C"
+                for name in ("forward", "reverse", "probe", "product")}
         print(f"Design {number}   (match penalty {design['match_penalty']}, lower is better)")
-        print(f"  forward  5'-{forward['seq']}-3'   {len(forward['seq'])} nt, GC {gc_percent(forward['seq'])}")
+        print(f"  forward  5'-{forward['seq']}-3'   {len(forward['seq'])} nt, GC {gc_percent(forward['seq'])}{temp['forward']}")
         print(f"           binds {forward['start'] + 1}-{forward['end']} (starts at {forward['start'] + 1})")
-        print(f"  reverse  3'-{reverse['seq'][::-1]}-5'   {len(reverse['seq'])} nt, GC {gc_percent(reverse['seq'])}")
+        print(f"  reverse  3'-{reverse['seq'][::-1]}-5'   {len(reverse['seq'])} nt, GC {gc_percent(reverse['seq'])}{temp['reverse']}")
         print(f"           binds {reverse['start'] + 1}-{reverse['end']} (5' end at {reverse['end']})")
         print(f"           order it as 5'-{reverse['seq']}-3'")
-        print(f"  probe    5'-{probe['seq']}-3'   {len(probe['seq'])} nt, GC {gc_percent(probe['seq'])}")
+        print(f"  probe    5'-{probe['seq']}-3'   {len(probe['seq'])} nt, GC {gc_percent(probe['seq'])}{temp['probe']}")
         print(f"           binds {probe['start'] + 1}-{probe['end']}")
         print(f"  product  {design['product_start'] + 1}-{design['product_end']}, "
-              f"{design['product_length']} bp, the only product on the whole genome")
+              f"{design['product_length']} bp{temp['product']}, the only product on the whole genome")
+        if design.get("dimers"):
+            worst = min(design["dimers"], key=lambda d: d["any"]["dG"])
+            print(f"  dimers   most stable: {worst['pair']}, {worst['any']['length']} bp, "
+                  f"dG {worst['any']['dG'] / 1000:.1f} kcal/mol at 37 C (limit -9; 3' ends -5)")
         print()
 
 
@@ -453,16 +591,21 @@ if __name__ == "__main__":
         allowance = int(sys.argv[3]) if len(sys.argv) > 3 else 2
         shortest = int(sys.argv[4]) if len(sys.argv) > 4 else PRODUCT_RANGE[0]
         longest = int(sys.argv[5]) if len(sys.argv) > 5 else PRODUCT_RANGE[1]
+        annealing = ANNEALING_TEMP_C
+        if len(sys.argv) > 6:
+            annealing = None if sys.argv[6].lower() == "none" else float(sys.argv[6])
     else:
         project = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         genome = read_fasta(glob.glob(os.path.join(project, "data", "reference", "*"))[0])[1]
         target = genome[28274 - 1:29533]
         allowance = 2
         shortest, longest = PRODUCT_RANGE
+        annealing = ANNEALING_TEMP_C
         print("Demo: N gene of the reference genome NC_045512.2\n")
 
     try:
-        result = design_primers(genome, target, allowance, shortest, longest)
+        result = design_primers(genome, target, allowance, shortest, longest,
+                                annealing_c=annealing)
     except ValueError as error:
         print(f"ERROR: {error}")
         sys.exit(1)

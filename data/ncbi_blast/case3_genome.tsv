@@ -1,0 +1,65 @@
+# NCBI RID FZAV351J114, 2026-11-19
+<p><!--
+QBlastInfoBegin
+	Status=READY
+QBlastInfoEnd
+--><p>
+<PRE>
+# blastn
+# Iteration: 0
+# Query: c3_F9
+# RID: FZAV351J114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 2 hits found
+c3_F9	case3_genome	100.000	18	0	0	1	18	136	153	4.45e-07	33.7
+c3_F9	case3_genome	93.750	16	1	0	3	18	488	503	2.31e-04	25.6
+# blastn
+# Iteration: 0
+# Query: c3_R10
+# RID: FZAV351J114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 2 hits found
+c3_R10	case3_genome	100.000	18	0	0	1	18	229	212	4.45e-07	33.7
+c3_R10	case3_genome	94.444	18	1	0	1	18	579	562	1.89e-05	29.2
+# blastn
+# Iteration: 0
+# Query: c3_P11
+# RID: FZAV351J114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 3 hits found
+c3_P11	case3_genome	100.000	18	0	0	1	18	170	187	4.45e-07	33.7
+c3_P11	case3_genome	88.889	18	2	0	1	18	520	537	2.31e-04	24.7
+c3_P11	case3_genome	100.000	7	0	0	11	17	341	347	0.42	13.9
+# blastn
+# Iteration: 0
+# Query: c3_F9
+# RID: FZAV351J114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 2 hits found
+c3_F9	case3_genome	100.000	18	0	0	1	18	136	153	4.45e-07	33.7
+c3_F9	case3_genome	93.750	16	1	0	3	18	488	503	2.31e-04	25.6
+# blastn
+# Iteration: 0
+# Query: c3_R12
+# RID: FZAV351J114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 2 hits found
+c3_R12	case3_genome	100.000	20	0	0	1	20	233	214	4.39e-08	37.4
+c3_R12	case3_genome	94.737	19	1	0	2	20	582	564	6.51e-06	31.0
+# blastn
+# Iteration: 0
+# Query: c3_P11
+# RID: FZAV351J114
+# Database: n/a
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score
+# 3 hits found
+c3_P11	case3_genome	100.000	18	0	0	1	18	170	187	4.45e-07	33.7
+c3_P11	case3_genome	88.889	18	2	0	1	18	520	537	2.31e-04	24.7
+c3_P11	case3_genome	100.000	7	0	0	11	17	341	347	0.42	13.9
+</PRE>
+
