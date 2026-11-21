@@ -625,15 +625,42 @@ session logs)
 - Make `primer_design.py` give a clear error for non-DNA letters, like the
   website does, instead of crashing.
 
-## Log 15 · 2026-11-20 · A public website
+## Log 15 · 2026-11-20 · A public website, and the Omicron spike gene
 
-**Commit:** filled in at the next update
+**Commit:** `c7886a0` (#69), then #70 (filled in at the next update)
 
 ### What I did
 - The claude.ai pages can only be opened inside my organization, so I put
   both websites on GitHub Pages, where anyone can open them, with a home
   page that links Version 1 and Version 2. The link is at the top of the
   README **(#69)**.
+- Compared the two website versions and NCBI Primer-BLAST on the Omicron
+  spike gene, and tested every design on the reference, Beta, Delta and
+  Omicron genomes. None of the three gave the same design. All 3 of
+  Version 1's designs break the temperature rules (primers too cool, probes
+  below the primers); Version 2's all pass, and NCBI's designs rank much
+  higher in Version 2's list. Two of our designs only work on Omicron
+  because they sit on its own mutations, one on its 9-base "EPE" insertion.
+  NCBI's 10 work on all four genomes, but 6 have probes barely above the
+  primers **(#70)**.
+
+### Things to work on for next time
+- **Main goal:** checking each design against several variant genomes would
+  be a good next feature. Let the designer (and the website) take more than
+  one genome and keep only designs that match all of them, so it cannot
+  pick a spot on one variant's own mutations (#70).
+- Add the public link to the repository's About box on GitHub.
+- **Proposal wording:** the second model computes how much a mismatch lowers
+  the Tm, which goes beyond the proposal; update it or call it an extension.
+- **Share Version 1 on claude.ai** with my professor, or point to the
+  public GitHub Pages link instead.
+- Write expected results for Version 2 in a test-case file.
+- **Hairpins** (needs loop parameters).
+- Decide whether the -8.1 kcal/mol dimer in N gene design 1 should fail.
+- Second model: Tm for indel and side-by-side mismatch sites (#44), and the
+  probe's Ct delay (#45).
+- Report where each CDC design ranks (#52); clear error for non-DNA letters
+  in `primer_design.py`.
 
 ---
 

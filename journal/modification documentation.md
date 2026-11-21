@@ -858,9 +858,9 @@ website.
 order, identical results) and `dimer_check(cache=...)` scans each oligo pair
 once per run: 2.1 s.
 
-## Log 15 · 2026-11-20 · A public website
+## Log 15 · 2026-11-20 · A public website, and the Omicron spike gene
 
-**Commit:** filled in at the next update
+**Commit:** `c7886a0` (#69), then #70 (filled in at the next update)
 
 **#69. Problem:** the websites are claude.ai artifacts, which cannot be
 shared outside the organization.
@@ -874,6 +874,23 @@ rewrites the claude.ai cross-links to `../website/` and
 pages are unchanged, so the claude.ai artifacts can still be republished
 from them. Public link in README.md:
 https://isabelisabelguoguo.github.io/02120-qPCR-primers-and-covid19/
+
+**#70. Problem:** the two website versions had not been compared on a real,
+mutation-heavy gene, or with NCBI there.
+**Fix:** `journal/compare_omicron_spike.py`. Target: Omicron BA.1
+(OL672836.1) spike, 21497-25309, found by matching the reference spike's
+first and last 30 bases (Omicron's deletions and ins214EPE shift the
+coordinates; 3,813 bases). `design_primers` with `annealing_c=None`
+(Version 1) and `55` (Version 2); Primer-BLAST with the same settings,
+saved in `data/ncbi_blast/primer_blast_omicron_spike.txt` (read with
+`primer_blast_designs`). Each design: `assay_temperature_check` at
+`QPCR_CONDITIONS` and `run_temperature_model` on the reference, Beta, Delta
+and Omicron. Results (`test_cases_web_specificity.txt`, part D): V1 3 of 3
+fail the rules; V2 3 of 3 pass; NCBI 4 pass, 6 fail (probe < primers +
+2 C); no design shared. V1 design 1 (N679K region) is "weak binding" off
+Omicron; V2 design 1 (probe covers ins214EPE, GAGCCAGAA) gives no product
+off Omicron; NCBI's 10 work on all four. 8 of NCBI's 10 products rank
+higher in V2's list than in V1's (e.g. 187 vs 9,507).
 
 ---
 
@@ -909,9 +926,9 @@ https://isabelisabelguoguo.github.io/02120-qPCR-primers-and-covid19/
   related coronaviruses (#63).
 
 ## Planned (not built yet)
-- **Primer design, next:** report each published design's rank; hairpins;
-  run the new designs on the variant genomes; expected results for the
-  Version 2 website. (NCBI comparison and Tm on the website: done, #62-#66.)
+- **Primer design, next:** check each design on several variant genomes and
+  keep only those that match all (#70); report each published design's
+  rank; hairpins; expected results for the Version 2 website. (NCBI comparison and Tm on the website: done, #62-#66.)
 Factor 2's basic plan (nearest-neighbor Tm, Primer3's salt correction,
 mismatch parameters, comparison with the 55 C annealing step, fraction
 bound) was built in Log 9 (#43-#45). Still to do for it:

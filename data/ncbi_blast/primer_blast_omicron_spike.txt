@@ -1,0 +1,217 @@
+# NCBI Primer-BLAST job_key 39UCg2zlYU1Gd_Fy_BLVQIYJxHKrGt9vqg, 2026-11-20, Omicron BA.1 (OL672836.1) spike 21497-25309, specificity vs Homo sapiens RefSeq representative genome
+Input PCR template OL672836.1_Omicron_BA.1_spike_21497-25309
+Range1 - 3813
+Specificity of primersPrimer pairs are specific to input template as no other targets were found in selected database: RefSeq Reference Genome Database (Organism limited to Homo sapiens)
+Other reports
+Search Summary
+Search parameters and other details
+Search parameter name
+Search parameter value
+Number of Blast hits analyzed	8225
+Entrez query
+Min total mismatches	1
+Min 3' end mismatches	1
+Defined 3' end region length	0
+Mismatch threshold to ignore targets	7
+Max target size	4000
+Max number of Blast target sequences	50000
+Blast E value	1000
+Blast word size	7
+Max candidate primer pairs	50
+Min PCR product size	60
+Max PCR product size	150
+Min Primer size	18
+Opt Primer size	20
+Max Primer size	24
+Min Tm	0
+Opt Tm	5.99637e-316
+Max Tm	2.18186e+243
+Max Tm difference	1.5316e-322
+Repeat filter
+Low complexity filter	No
+Summary of primer pairs
+Detailed primer reports
+OL672836.1 Omicron BA.1 spike 21497-25309
+ATGTTTGTTTTTCTTGTTTTATTGCCACTAGTCTCTAGTCAGTGTGTTAATCTTACAACCAGAACTCAATTACCCCCTGCATACACTAATTCTTTCACACGTGGTGTTTATTACCCTGACAAAGTTTTCAGATCCTCAGTTTTACATTCAACTCAGGACTTGTTCTTACCTTTCTTTTCCAATGTTACTTGGTTCCATGTTATCTCTGGGACCAATGGTACTAAGAGGTTTGATAACCCTGTCCTACCATTTAATGATGGTGTTTATTTTGCTTCCATTGAGAAGTCTAACATAATAAGAGGCTGGATTTTTGGTACTACTTTAGATTCGAAGACCCAGTCCCTACTTATTGTTAATAACGCTACTAATGTTGTTATTAAAGTCTGTGAATTTCAATTTTGTAATGATCCATTTTTGGACCACAAAAACAACAAAAGTTGGATGGAAAGTGAGTTCAGAGTTTATTCTAGTGCGAATAATTGCACTTTTGAATATGTCTCTCAGCCTTTTCTTATGGACCTTGAAGGAAAACAGGGTAATTTCAAAAATCTTAGGGAATTTGTGTTTAAGAATATTGATGGTTATTTTAAAATATATTCTAAGCACACGCCTATTATAGTGCGTGAGCCAGAAGATCTCCCTCAGGGTTTTTCGGCTTTAGAACCATTGGTAGATTTGCCAATAGGTATTAACATCACTAGGTTTCAAACTTTACTTGCTTTACATAGAAGTTATTTGACTCCTGGTGATTCTTCTTCAGGTTGGACAGCTGGTGCTGCAGCTTATTATGTGGGTTATCTTCAACCTAGGACTTTTCTATTAAAATATAATGAAAATGGAACCATTACAGATGCTGTAGACTGTGCACTTGACCCTCTCTCAGAAACAAAGTGTACGTTGAAATCCTTCACTGTAGAAAAAGGAATCTATCAAACTTCTAACTTTAGAGTCCAACCAACAGAATCTATTGTTAGATTTCCTAATATTACAAACTTGTGCCCTTTTGATGAAGTTTTTAACGCCACCAGATTTGCATCTGTTTATGCTTGGAACAGGAAGAGAATCAGCAACTGTGTTGCTGATTATTCTGTCCTATATAATCTCGCACCATTTTTCACTTTTAAGTGTTATGGAGTGTCTCCTACTAAATTAAATGATCTCTGCTTTACTAATGTCTATGCAGATTCATTTGTAATTAGAGGTGATGAAGTCAGACAAATCGCTCCAGGGCAAACTGGAAATATTGCTGATTATAATTATAAATTACCAGATGATTTTACAGGCTGCGTTATAGCTTGGAATTCTAACAAGCTTGATTCTAAGGTTAGTGGTAATTATAATTACCTGTATAGATTGTTTAGGAAGTCTAATCTCAAACCTTTTGAGAGAGATATTTCAACTGAAATCTATCAGGCCGGTAACAAACCTTGTAATGGTGTTGCAGGTTTTAATTGTTACTTTCCTTTACGATCATATAGTTTCCGACCCACTTATGGTGTTGGTCACCAACCATACAGAGTAGTAGTACTTTCTTTTGAACTTCTACATGCACCAGCAACTGTTTGTGGACCTAAAAAGTCTACTAATTTGGTTAAAAACAAATGTGTCAATTTCAACTTCAATGGTTTAAAAGGCACAGGTGTTCTTACTGAGTCTAACAAAAAGTTTCTGCCTTTCCAACAATTTGGCAGAGACATTGCTGACACTACTGATGCTGTCCGTGATCCACAGACACTTGAGATTCTTGACATTACACCATGTTCTTTTGGTGGTGTCAGTGTTATAACACCAGGAACAAATACTTCTAACCAGGTTGCTGTTCTTTATCAGGGTGTTAACTGCACAGAAGTCCCTGTTGCTATTCATGCAGATCAACTTACTCCTACTTGGCGTGTTTATTCTACAGGTTCTAATGTTTTTCAAACACGTGCAGGCTGTTTAATAGGGGCTGAATATGTCAACAACTCATATGAGTGTGACATACCCATTGGTGCAGGTATATGCGCTAGTTATCAGACTCAGACTAAGTCTCATCGGCGGGCACGTAGTGTAGCTAGTCAATCCATCATTGCCTACACTATGTCACTTGGTGCAGAAAATTCAGTTGCTTACTCTAATAACTCTATTGCCATACCCACAAATTTTACTATTAGTGTTACCACAGAAATTCTACCAGTGTCTATGACCAAGACATCAGTAGATTGTACAATGTACATTTGTGGTGATTCAACTGAATGCAGCAATCTTTTGTTGCAATATGGCAGTTTTTGTACACAATTAAAACGTGCTTTAACTGGAATAGCTGTTGAACAAGACAAAAACACCCAAGAAGTTTTTGCACAAGTCAAACAAATTTACAAAACACCACCAATTAAATATTTTGGTGGTTTTAATTTTTCACAAATATTACCAGATCCATCAAAACCAAGCAAGAGGTCATTTATTGAAGATCTACTTTTCAACAAAGTGACACTTGCAGATGCTGGCTTCATCAAACAATATGGTGATTGCCTTGGTGATATTGCTGCTAGAGACCTCATTTGTGCACAAAAGTTTAAAGGCCTTACTGTTTTGCCACCTTTGCTCACAGATGAAATGATTGCTCAATACACTTCTGCACTGTTAGCGGGTACAATCACTTCTGGTTGGACCTTTGGTGCAGGTGCTGCATTACAAATACCATTTGCTATGCAAATGGCTTATAGGTTTAATGGTATTGGAGTTACACAGAATGTTCTCTATGAGAACCAAAAATTGATTGCCAACCAATTTAATAGTGCTATTGGCAAAATTCAAGACTCACTTTCTTCCACAGCAAGTGCACTTGGAAAACTTCAAGATGTGGTCAACCATAATGCACAAGCTTTAAACACGCTTGTTAAACAACTTAGCTCCAAATTTGGTGCAATTTCAAGTGTTTTAAATGATATCTTTTCACGTCTTGACAAAGTTGAGGCTGAAGTGCAAATTGATAGGTTGATCACAGGCAGACTTCAAAGTTTGCAGACATATGTGACTCAACAATTAATTAGAGCTGCAGAAATCAGAGCTTCTGCTAATCTTGCTGCTACTAAAATGTCAGAGTGTGTACTTGGACAATCAAAAAGAGTTGATTTTTGTGGAAAGGGCTATCATCTTATGTCCTTCCCTCAGTCAGCACCTCATGGTGTAGTCTTCTTGCATGTGACTTATGTCCCTGCACAAGAAAAGAACTTCACAACTGCTCCTGCCATTTGTCATGATGGAAAAGCACACTTTCCTCGTGAAGGTGTCTTTGTTTCAAATGGCACACACTGGTTTGTAACACAAAGGAATTTTTATGAACCACAAATCATTACTACAGACAACACATTTGTGTCTGGTAACTGTGATGTTGTAATAGGAATTGTCAACAACACAGTTTATGATCCTTTGCAACCTGAATTAGATTCATTCAAGGAGGAGTTAGATAAATATTTTAAGAATCATACATCACCAGATGTTGATTTAGGTGACATCTCTGGCATTAATGCTTCAGTTGTAAACATTCAAAAAGAAATTGACCGCCTCAATGAGGTTGCCAAGAATTTAAATGAATCTCTCATCGATCTCCAAGAACTTGGAAAGTATGAGCAGTATATAAAATGGCCATGGTACATTTGGCTAGGTTTTATAGCTGGCTTGATTGCCATAGTAATGGTGACAATTATGCTTTGCTGTATGACCAGTTGCTGTAGTTGTCTCAAGGGCTGTTGTTCTTGTGGATCCTGCTGCAAATTTGATGAAGACGACTCTGAGCCAGTGCTCAAAGGAGTCAAATTACATTACACATAA">
+You can re-search for specific primers by accepting some of the unintended targets, check the box(es) next to the ones you accept and try again to re-search for specific primers
+Help
+Primer-BLAST can only find non-specific primers for your template since there are other targets that are similar or identical to your template.  You may choose to re-search for specific primers by allowing some of the highly similar off-targets if they are irrelevant to your PCR experiment.  For example, not all transcript variants are expressed in all tissues, or you are not concerned about the predicted transcripts (i.e., XM_ accessions), or there are redundant database entries.  Another example is, when you enter a raw sequence as PCR template rather than an accession, Primer-BLAST will likely report many off-targets.  However, some of these might be your intended target that you should choose to allow.  When Primer-BLAST does not need to avoid the highly similar off-targets in selecting unique primer regions, it typically has a much higher chance to find specific primers for your intended target.
+Download primer pairs
+Text
+CSV
+Tabular
+Primer pair 1
+Sequence (5'->3')	Template strand	Length	Start	Stop	Tm	GC%	Self complementarity	Self 3' complementarity
+Forward primer	GTCCTTCCCTCAGTCAGCAC	Plus	20	3141	3160	60.04	60.00	3.00	1.00
+Reverse primer	ATGGCAGGAGCAGTTGTGAA	Minus	20	3233	3214	59.89	50.00	3.00	1.00
+Internal oligo	TGCATGTGACTTATGTCCCTGCACA	Plus	25	3179	3203	58.69	48.00
+Product length	93
+Product Tm
+Product Tm - min(OLIGO Tm)
+Exon junction
+Total intron size
+Products on intended targets
+Products on allowed targets
+Products on allowed transcript variants
+Products on potentially unintended templates
+Products on target templates
+Primer pair 2
+Sequence (5'->3')	Template strand	Length	Start	Stop	Tm	GC%	Self complementarity	Self 3' complementarity
+Forward primer	CCTCAGTCAGCACCTCATGG	Plus	20	3148	3167	60.11	60.00	4.00	2.00
+Reverse primer	AATGGCAGGAGCAGTTGTGA	Minus	20	3234	3215	59.89	50.00	3.00	1.00
+Internal oligo	TGCATGTGACTTATGTCCCTGCACA	Plus	25	3179	3203	58.69	48.00
+Product length	87
+Product Tm
+Product Tm - min(OLIGO Tm)
+Exon junction
+Total intron size
+Products on intended targets
+Products on allowed targets
+Products on allowed transcript variants
+Products on potentially unintended templates
+Products on target templates
+Primer pair 3
+Sequence (5'->3')	Template strand	Length	Start	Stop	Tm	GC%	Self complementarity	Self 3' complementarity
+Forward primer	TTCAGGTTGGACAGCTGGTG	Plus	20	756	775	60.18	55.00	6.00	3.00
+Reverse primer	GAGGGTCAAGTGCACAGTCT	Minus	20	877	858	59.61	55.00	6.00	3.00
+Internal oligo	TGCAGCTTATTATGTGGGTTATCTTCAACC	Plus	30	777	806	57.64	40.00
+Product length	122
+Product Tm
+Product Tm - min(OLIGO Tm)
+Exon junction
+Total intron size
+Products on intended targets
+Products on allowed targets
+Products on allowed transcript variants
+Products on potentially unintended templates
+Products on target templates
+Primer pair 4
+Sequence (5'->3')	Template strand	Length	Start	Stop	Tm	GC%	Self complementarity	Self 3' complementarity
+Forward primer	TTGCCACCTTTGCTCACAGA	Plus	20	2572	2591	60.11	50.00	4.00	2.00
+Reverse primer	GCACCAAAGGTCCAACCAGA	Minus	20	2660	2641	60.47	55.00	3.00	0.00
+Internal oligo	ACACTTCTGCACTGTTAGCGGGT	Plus	23	2609	2631	58.52	52.17
+Product length	89
+Product Tm
+Product Tm - min(OLIGO Tm)
+Exon junction
+Total intron size
+Products on intended targets
+Products on allowed targets
+Products on allowed transcript variants
+Products on potentially unintended templates
+Products on target templates
+Primer pair 5
+Sequence (5'->3')	Template strand	Length	Start	Stop	Tm	GC%	Self complementarity	Self 3' complementarity
+Forward primer	AGGGCTGTTGTTCTTGTGGA	Plus	20	3725	3744	59.45	50.00	2.00	0.00
+Reverse primer	GACTCCTTTGAGCACTGGCT	Minus	20	3795	3776	59.96	55.00	3.00	3.00
+Internal oligo	TCCTGCTGCAAATTTGATGAAGACGA	Plus	26	3745	3770	57.62	42.31
+Product length	71
+Product Tm
+Product Tm - min(OLIGO Tm)
+Exon junction
+Total intron size
+Products on intended targets
+Products on allowed targets
+Products on allowed transcript variants
+Products on potentially unintended templates
+Products on target templates
+Primer pair 6
+Sequence (5'->3')	Template strand	Length	Start	Stop	Tm	GC%	Self complementarity	Self 3' complementarity
+Forward primer	GATGCTGTCCGTGATCCACA	Plus	20	1711	1730	60.11	55.00	4.00	2.00
+Reverse primer	AGCAACAGGGACTTCTGTGC	Minus	20	1860	1841	60.54	55.00	4.00	3.00
+Internal oligo	ACACCATGTTCTTTTGGTGGTGTCA	Plus	25	1753	1777	57.25	44.00
+Product length	150
+Product Tm
+Product Tm - min(OLIGO Tm)
+Exon junction
+Total intron size
+Products on intended targets
+Products on allowed targets
+Products on allowed transcript variants
+Products on potentially unintended templates
+Products on target templates
+Primer pair 7
+Sequence (5'->3')	Template strand	Length	Start	Stop	Tm	GC%	Self complementarity	Self 3' complementarity
+Forward primer	AGCTGGTGCTGCAGCTTATT	Plus	20	768	787	60.32	50.00	8.00	1.00
+Reverse primer	AGAGGGTCAAGTGCACAGTC	Minus	20	878	859	59.61	55.00	6.00	2.00
+Internal oligo	TGTGGGTTATCTTCAACCTAGGACTTTTCT	Plus	30	789	818	57.60	40.00
+Product length	111
+Product Tm
+Product Tm - min(OLIGO Tm)
+Exon junction
+Total intron size
+Products on intended targets
+Products on allowed targets
+Products on allowed transcript variants
+Products on potentially unintended templates
+Products on target templates
+Primer pair 8
+Sequence (5'->3')	Template strand	Length	Start	Stop	Tm	GC%	Self complementarity	Self 3' complementarity
+Forward primer	TCCCTCAGTCAGCACCTCAT	Plus	20	3146	3165	60.25	55.00	3.00	2.00
+Reverse primer	TGGCAGGAGCAGTTGTGAAG	Minus	20	3232	3213	60.54	55.00	3.00	0.00
+Internal oligo	TGCATGTGACTTATGTCCCTGCACA	Plus	25	3179	3203	58.69	48.00
+Product length	87
+Product Tm
+Product Tm - min(OLIGO Tm)
+Exon junction
+Total intron size
+Products on intended targets
+Products on allowed targets
+Products on allowed transcript variants
+Products on potentially unintended templates
+Products on target templates
+Primer pair 9
+Sequence (5'->3')	Template strand	Length	Start	Stop	Tm	GC%	Self complementarity	Self 3' complementarity
+Forward primer	TTTTCAAACACGTGCAGGCT	Plus	20	1917	1936	59.19	45.00	6.00	3.00
+Reverse primer	AGCGCATATACCTGCACCAA	Minus	20	2007	1988	59.82	50.00	4.00	0.00
+Internal oligo	GGGGCTGAATATGTCAACAACTCATATGA	Plus	29	1945	1973	57.16	41.38
+Product length	91
+Product Tm
+Product Tm - min(OLIGO Tm)
+Exon junction
+Total intron size
+Products on intended targets
+Products on allowed targets
+Products on allowed transcript variants
+Products on potentially unintended templates
+Products on target templates
+Primer pair 10
+Sequence (5'->3')	Template strand	Length	Start	Stop	Tm	GC%	Self complementarity	Self 3' complementarity
+Forward primer	TGTCCTTCCCTCAGTCAGCA	Plus	20	3140	3159	60.47	55.00	3.00	0.00
+Reverse primer	GGCAGGAGCAGTTGTGAAGT	Minus	20	3231	3212	60.54	55.00	2.00	1.00
+Internal oligo	TGCATGTGACTTATGTCCCTGCACA	Plus	25	3179	3203	58.69	48.00
+Product length	92
+Product Tm
+Product Tm - min(OLIGO Tm)
+Exon junction
+Total intron size
+Products on intended targets
+Products on allowed targets
+Products on allowed transcript variants
+Products on potentially unintended templates
+Products on target templates
+If you want to allow any of the unintended targets, check the box(es) next to the ones you accept and try again to re-search for specific primers
+Help
+Primer-BLAST can only find non-specific primers for your template since there are other targets that are similar or identical to your template.  You may choose to re-search for specific primers by allowing some of the highly similar off-targets if they are irrelevant to your PCR experiment.  For example, not all transcript variants are expressed in all tissues, or you are not concerned about the predicted transcripts (i.e., XM_ accessions), or there are redundant database entries.  Another example is, when you enter a raw sequence as PCR template rather than an accession, Primer-BLAST will likely report many off-targets.  However, some of these might be your intended target that you should choose to allow.  When Primer-BLAST does not need to avoid the highly similar off-targets in selecting unique primer regions, it typically has a much higher chance to find specific primers for your intended target.
+Follow NCBI
+Twitter
+Facebook
+LinkedIn
+GitHub
+Connect with NLM
+SM-Twitter
+SM-Facebook
+SM-Youtube
+National Library of Medicine
+8600 Rockville Pike
+Bethesda, MD 20894
+Web Policies
+FOIA
+HHS Vulnerability Disclosure
+Help
+Accessibility
+Careers
+NLM
+NIH
+HHS
+USA.gov

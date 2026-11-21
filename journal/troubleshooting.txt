@@ -5,7 +5,7 @@ One line per problem overcome, in five parts:
   PART 2  primer_design.py                   (#47-#57, #61, #65, #68)
   PART 3  the websites (website/, website_temperature/)  (#59-#60, #66, #69)
   PART 4  second_model_annealing_temp.py     (#64, #67)
-  PART 5  comparison with NCBI               (#62-#63)
+  PART 5  comparison with NCBI               (#62-#63, #70)
 Numbers match modification documentation.md, which has the full details.
 
 "Functions:" lists the functions each fix changed or is directly about.
@@ -296,4 +296,11 @@ PART 5: COMPARISON WITH NCBI (compare_ncbi_blast.py)
       intended target when checking against SARS-CoV-2 -> specificity was
       checked against the human genome instead (what else is in a swab).
       Functions: primer_blast_designs, compare_n_gene
+- #70 The spike gene's reference coordinates do not fit the Omicron genome
+      (its deletions and 9-base insertion shift them) -> the gene was found
+      by matching the reference spike's first and last 30 bases, and
+      checked (starts ATG, ends TAA, length a multiple of 3). Finding:
+      designs made on one genome can sit on that variant's own mutations.
+      Functions: genomes, report (journal/compare_omicron_spike.py);
+                 primer_blast_designs (journal/compare_ncbi_blast.py)
 

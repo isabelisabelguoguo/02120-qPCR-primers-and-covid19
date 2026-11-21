@@ -359,3 +359,53 @@ would not. Our second model already computes the same Tm as Primer3, so the
 fix is to use it in the designer: choose lengths to hit a target Tm (at qPCR
 conditions), keep the two primers within ~3 C, and require the probe to be
 5-10 C above them.
+
+
+D. OMICRON SPIKE GENE: WEBSITE VERSION 1 vs VERSION 2 vs NCBI PRIMER-BLAST
+--------------------------------------------------------------------------
+(python3 journal/compare_omicron_spike.py; Primer-BLAST result saved in
+data/ncbi_blast/primer_blast_omicron_spike.txt)
+
+Target: Omicron BA.1 (OL672836.1) spike gene, genome 21497-25309 (3,813
+bases, 37.2 % GC: low-GC warning). Allowance 2, products 60-150 bp;
+Version 2 at 55 C annealing. Primer-BLAST: same lengths/GC/products, its own
+Tm defaults, specificity vs the human genome (no other target found).
+
+  Design      Product        Tm F/R/P (qPCR)   V2 rules   Works on (55 C)
+  V1 1        23475-23534    59.8/58.2/55.0    fail (4)   Omicron only*
+  V1 2        24109-24168    64.0/66.4/59.3    fail (1)   all four
+  V1 3        24615-24674    57.3/64.5/55.1    fail (3)   all four
+  V2 1        22098-22167    63.0/63.3/70.0    pass       Omicron only**
+  V2 2        25192-25265    63.0/63.0/70.0    pass       all four
+  V2 3        24692-24764    63.1/63.0/69.9    pass       all four
+  NCBI 1-10   69-150 bp      ~64-66/~65/66-68  4 pass,    all four
+                                               6 fail***
+  "all four" = reference (Wuhan), Beta, Delta and Omicron each give the
+  product at 55 C.
+  *   V1 design 1's reverse primer covers Omicron's N679K region: 2
+      mismatches on the other genomes -> "weak binding".
+  **  V2 design 1's forward primer and probe cover Omicron's 9-base insertion
+      (ins214EPE, GAGCCAGAA in the probe): no product on the other genomes.
+      An Omicron-specific assay, not a general SARS-CoV-2 test.
+  *** every failure is the same rule: the probe is only 0.5-1.9 C above the
+      primers (should be >= 2 C), as with Primer-BLAST on the N gene.
+
+Version 1 vs Version 2: no design in common. V1's three 60 bp designs all
+break the temperature rules (low primer Tms, primers 7.2 C apart, probes
+3-9 C BELOW the primers, and one extendable 3'-end dimer). V2's three pass.
+
+Ours vs NCBI: no identical design. NCBI designs 1, 2, 8 and 10 sit in the
+same region as V1 design 3 and V2 design 3 (24636-24730); NCBI 4 overlaps
+V1 design 2, NCBI 5 overlaps V2 design 2, NCBI 9 overlaps V1 design 1.
+8 of NCBI's 10 products rank higher in Version 2's list (42,173 designs)
+than in Version 1's (81,008), e.g. NCBI 5: V2 rank 187, V1 rank 9,507;
+NCBI 4: 1,361 vs 13,010. Version 2 ranks by Tm, as Primer3 does. NCBI 8
+ranks lower in V2 (9,043 vs 7,300), and NCBI 7 is not a V2 candidate at
+all. The rest of the gap is product length: NCBI's are 69-150 bp, ours
+60-74 bp, and both our versions prefer short products.
+
+What it shows: on a real, mutation-heavy gene, Version 2 agrees with
+Primer-BLAST far more than Version 1 does. But neither our designer nor
+Primer-BLAST looks at OTHER variants: a design made on one genome can sit on
+that variant's own mutations (V1 1, V2 1). Checking designs against several
+variant genomes is a natural next step for the designer.
