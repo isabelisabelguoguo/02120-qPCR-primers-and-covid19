@@ -47,3 +47,4 @@ first model does not account for annealing temperature, but includes pseudoprime
 second model does attempt to account for annealing temperature but still needs some work
 **first website applies our primer specificity model in reverse: it finds possible primers for a given genome and target gene while accounting for specificity, mismatch allowance, GC content, 3' distance of mismatches, mismatch severity, etc.
 Limitation: it does not yet include annealing temperature, but the website's first version was tested against reverse-engineered test cases, CDC primers, and we generated some possible cases to see how the primers our website produces compares with NCBI BLAST **
+**update** ran comparison against NCBI BLAST primers and created second model to account for annealing temperature. Two versions are located at the top of this document.
